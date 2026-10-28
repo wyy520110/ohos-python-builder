@@ -16,7 +16,6 @@ jobs:
 
       - name: Patch build.sh
         run: |
-          # Skip downloading OHOS ARM64 tools (can't run on x86_64)
           sed -i '/Harmonybrew\/ohos-coreutils/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-unzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-grep/s/^/#SKIP: /' build.sh
@@ -25,30 +24,19 @@ jobs:
           sed -i '/Harmonybrew\/ohos-tar/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-gzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-perl/s/^/#SKIP: /' build.sh
-          
-          # Skip ALL ln -sf commands (use system tools, avoid File exists errors)
           sed -i 's/^ln -sf/#SKIP: ln -sf/' build.sh
-          
-          # Add --enable-shared to configure
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
-          
-          # Make wrapper scripts use absolute paths (skip wrapper creation)
           sed -i '/cat.*>.*\/bin\//s/^/#SKIP: /' build.sh
-          
-          echo "Skipped lines: \"
-          echo "Configure line:"
-          grep 'configure' build.sh | grep -v SKIP | head -3
+          grep -c 'SKIP:' build.sh || true
+          grep 'configure' build.sh | grep -v SKIP | head -3 || true
 
       - name: Build
         run: sudo -E bash build.sh
 
       - name: Check output
         run: |
-          echo "=== python3 binary ==="
           find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
-          echo "=== libpython ==="
           find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No libpython found"
-          echo "=== bin directory ==="
           ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null || echo "No bin dir"
 
       - name: Upload artifact
