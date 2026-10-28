@@ -1,0 +1,56 @@
+name: Build Python for OHOS ARM64
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout Harmonybrew/ohos-python
+        uses: actions/checkout@v4
+        with:
+          repository: Harmonybrew/ohos-python
+          ref: main
+
+      - name: Patch build.sh
+        run: |
+          # Skip downloading OHOS ARM64 tools (can't run on x86_64)
+          sed -i '/Harmonybrew\/ohos-coreutils/s/^/#SKIP: /' build.sh
+          sed -i '/Harmonybrew\/ohos-unzip/s/^/#SKIP: /' build.sh
+          sed -i '/Harmonybrew\/ohos-grep/s/^/#SKIP: /' build.sh
+          sed -i '/Harmonybrew\/ohos-gawk/s/^/#SKIP: /' build.sh
+          sed -i '/Harmonybrew\/ohos-make/s/^/#SKIP: /' build.sh
+          sed -i '/Harmonybrew\/ohos-tar/s/^/#SKIP: /' build.sh
+          sed -i '/Harmonybrew\/ohos-gzip/s/^/#SKIP: /' build.sh
+          sed -i '/Harmonybrew\/ohos-perl/s/^/#SKIP: /' build.sh
+          
+          # Skip ln -sf to /bin (use system tools)
+          sed -i '/ln -sf.*\/bin\//s/^/#SKIP: /' build.sh
+          
+          # Add --enable-shared to configure
+          sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
+          
+          echo "Skipped lines: "
+          echo "Configure line:"
+          grep 'configure' build.sh | grep -v SKIP | head -3
+
+      - name: Build
+        run: sudo bash build.sh
+
+      - name: Check output
+        run: |
+          echo "=== python3 binary ==="
+          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
+          echo "=== libpython ==="
+          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No libpython found"
+          echo "=== bin directory ==="
+          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null || echo "No bin dir"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-ohos-shared
+          path: python-3.14.6-ohos-arm64.tar.gz
+          retention-days: 30
