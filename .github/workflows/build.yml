@@ -26,18 +26,21 @@ jobs:
           sed -i '/Harmonybrew\/ohos-gzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-perl/s/^/#SKIP: /' build.sh
           
-          # Skip ln -sf to /bin (use system tools)
-          sed -i '/ln -sf.*\/bin\//s/^/#SKIP: /' build.sh
+          # Skip ALL ln -sf commands (use system tools, avoid File exists errors)
+          sed -i 's/^ln -sf/#SKIP: ln -sf/' build.sh
           
           # Add --enable-shared to configure
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
           
-          echo "Skipped lines: "
+          # Make wrapper scripts use absolute paths (skip wrapper creation)
+          sed -i '/cat.*>.*\/bin\//s/^/#SKIP: /' build.sh
+          
+          echo "Skipped lines: \"
           echo "Configure line:"
           grep 'configure' build.sh | grep -v SKIP | head -3
 
       - name: Build
-        run: sudo bash build.sh
+        run: sudo -E bash build.sh
 
       - name: Check output
         run: |
