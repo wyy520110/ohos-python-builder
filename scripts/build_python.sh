@@ -42,6 +42,8 @@ echo "PLATFORM_TRIPLET=aarch64-linux-musl" > Misc/platform_triplet.c
     --with-build-python=$BUILD_PYTHON \
     ac_cv_file__dev_ptmx=yes \
     ac_cv_file__dev_ptc=no \
+    ac_cv_buggy_getaddrinfo=no \
+    --with-build-python=$BUILD_PYTHON \
     LDFLAGS="-L$DEPS_DIR/lib -Wl,-rpath,'\$\$ORIGIN/../lib' -Wl,-rpath,'\$\$ORIGIN/../../../lib'"
 
 make -j$(nproc)
