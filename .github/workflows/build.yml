@@ -42,31 +42,59 @@ jobs:
       - name: Patch and build
         run: |
           set -ex
-          # Skip OHOS ARM64 tools download
-          sed -i '/Harmonybrew\/ohos/s/^/#SKIP: /' build.sh
-          # Skip ln commands
-          sed -i '/^ln -sf/s/^/#SKIP: /' build.sh
-          sed -i '/^ln -s /s/^/#SKIP: /' build.sh
-          # Skip SDK download and setup
-          sed -i '/curl.*ohos-sdk/s/^/#SKIP: /' build.sh
-          sed -i '/tar.*ohos-sdk/s/^/#SKIP: /' build.sh
-          sed -i '/cd ohos-sdk/s/^/#SKIP: /' build.sh
-          sed -i '/unzip -q/s/^/#SKIP: /' build.sh
-          # Skip wrapper creation (we did it in setup step)
-          sed -i '/cat.*<<EOF/s/^/#SKIP: /' build.sh
-          sed -i '/^for executable in/s/^/#SKIP: /' build.sh
-          sed -i '/^essential_tools=/s/^/#SKIP: /' build.sh
-          # Skip lines inside the for loop (indented)
-          sed -i '/^    cat/s/^/#SKIP: /' build.sh
-          sed -i '/^    chmod/s/^/#SKIP: /' build.sh
-          # Only skip 'done' that's right after chmod (end of for loop)
-          # Don't skip all 'done' lines - that breaks other loops
-          # Fix binary-sign-tool path
-          sed -i 's|/opt/ohos-sdk/ohos/toolchains|/opt/ohos-sdk/linux/toolchains|' build.sh
-          sed -i 's|/opt/ohos-sdk/ohos/|/opt/ohos-sdk/linux/|g' build.sh
-          # Add --enable-shared
-          sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
-          # Set env
+          # Instead of sed patching, use a Python script to comment out specific lines
+          python3 << 'PYEOF'
+          with open('build.sh', 'r') as f:
+              lines = f.readlines()
+          
+          # Lines to skip (0-indexed): tool downloads, ln, SDK setup, wrapper creation
+          skip_patterns = [
+              'Harmonybrew/ohos',
+              'ln -sf',
+              'ln -s ',
+              'curl.*ohos-sdk',
+              'tar.*ohos-sdk',
+              'cd ohos-sdk',
+              'unzip -q',
+              'cat <<EOF',
+              'for executable in',
+              'essential_tools=',
+          ]
+          
+          # Track if we're inside the for loop for wrapper creation
+          in_for_loop = False
+          new_lines = []
+          for i, line in enumerate(lines):
+              should_skip = False
+              for pat in skip_patterns:
+                  if pat in line:
+                      should_skip = True
+                      break
+              # Track for loop for wrapper creation
+              if 'for executable in' in line and 'essential_tools' in line:
+                  in_for_loop = True
+                  should_skip = True
+              if in_for_loop:
+                  if line.strip() == 'done':
+                      in_for_loop = False
+                      should_skip = True
+                  else:
+                      should_skip = True
+              # Fix ohos path
+              line = line.replace('/opt/ohos-sdk/ohos/', '/opt/ohos-sdk/linux/')
+              # Add --enable-shared
+              if './configure' in line and '--enable-shared' not in line:
+                  line = line.rstrip() + ' --enable-shared\n'
+              if should_skip:
+                  new_lines.append('#SKIP: ' + line)
+              else:
+                  new_lines.append(line)
+          
+          with open('build.sh', 'w') as f:
+              f.writelines(new_lines)
+          print(f"Patched {len(new_lines)} lines")
+          PYEOF
+          
           export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
           export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
           export LDFLAGS="-L/opt/deps/lib"
@@ -79,9 +107,9 @@ jobs:
 
       - name: Check output
         run: |
-          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
-          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No libpython found"
-          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null || echo "No bin dir"
+          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null; echo "No python3 found"
+          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null; echo "No libpython found"
+          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null; echo "No bin dir"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
