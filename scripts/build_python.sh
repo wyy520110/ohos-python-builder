@@ -52,12 +52,12 @@ echo "PLATFORM_TRIPLET=aarch64-linux-musl" > Misc/platform_triplet.c
     CFLAGS="$CFLAGS -DNO_GETTEXT"
 
 make -j$(nproc) || {
-    # Fix _localemodule.c: stub out gettext functions if libintl not available
-    sed -i 's/textdomain(domain)/(char*)0/' Modules/_localemodule.c
-    sed -i 's/bindtextdomain(domain, dirname)/(char*)0/' Modules/_localemodule.c
-    sed -i 's/bindtextdomain(domain, dirname)/(char*)0/' Modules/_localemodule.c
-    # Add stub declarations
-    sed -i '/#include/i\char *textdomain(const char *d) { return (char*)d; }\nchar *bindtextdomain(const char *d, const char *dir) { return (char*)dir; }' Modules/_localemodule.c
+    echo "=== First make failed, patching _localemodule ==="
+    # Disable _localemodule entirely (gettext not available)
+    sed -i '/_localemodule/d' Modules/Setup.local 2>/dev/null || true
+    sed -i 's|_locale _localemodule.c|##_locale _localemodule.c|' Modules/Setup.stdlib 2>/dev/null || true
+    # Also patch the source to provide stubs
+    sed -i '1i\#define textdomain(d) ((char*)(d))\n#define bindtextdomain(d,dir) ((char*)(dir))\n#define gettext(s) (s)\n#define dgettext(d,s) (s)\n#define dcgettext(d,s,c) (s)\n#define ngettext(s,p,n) ((n)==1?(s):(p))\n#define dngettext(d,s,p,n) ((n)==1?(s):(p))\n#define bind_textdomain_codeset(d,c) ((char*)(c))' Modules/_localemodule.c
     make -j$(nproc)
 }
 make install
