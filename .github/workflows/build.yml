@@ -14,19 +14,33 @@ jobs:
           repository: Harmonybrew/ohos-python
           ref: main
 
-      - name: Check SDK contents
+      - name: Find correct SDK URL
         run: |
-          curl -fL -o ohos-sdk.tar.gz https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-windows_linux-public_20260829.tar.gz
+          # Try different SDK URLs
+          for url in 
+            "https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-windows_linux-public_20260829.tar.gz"
+            "https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-linux-public_20260829.tar.gz"
+            "https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-windows_linux-public_20260829.tar.gz"
+          do
+            code=
+            echo " => "
+          done
+          
+          # Download the windows_linux SDK and check what's inside
+          curl -fL -o ohos-sdk.tar.gz "https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-windows_linux-public_20260829.tar.gz"
           tar -zxf ohos-sdk.tar.gz 2>/dev/null
-          ls -la ohos-sdk/
-          ls -la ohos-sdk/ohos/ 2>/dev/null || echo "no ohos dir"
-          # Check if there's a linux-only SDK
-          curl -sI https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-linux-public_20260829.tar.gz 2>/dev/null | head -5
+          ls -la ohos-sdk/ 2>/dev/null
+          ls -la ohos-sdk/ohos/ 2>/dev/null
+          # Check the zip files - are they linux or windows?
+          cd ohos-sdk/ohos 2>/dev/null
+          unzip -q native-*.zip 2>/dev/null
+          file native/llvm/bin/clang 2>/dev/null || echo "clang not found"
+          ls native/llvm/bin/ | head -10 2>/dev/null
 
-      - name: Patch build.sh - use linux SDK and fix compiler
+      - name: Patch build.sh
         run: |
-          # Use linux-only SDK instead of windows_linux
-          sed -i 's|ohos-sdk-windows_linux-public|ohos-sdk-linux-public|' build.sh
+          # Keep original SDK URL (windows_linux contains linux tools too)
+          # The issue is that the zip files contain windows .exe - need to check
           
           # Skip downloading OHOS ARM64 tools
           sed -i '/Harmonybrew\/ohos-coreutils/s/^/#SKIP: /' build.sh
@@ -50,14 +64,11 @@ jobs:
           # Fix wrapper scripts: add --target and --sysroot
           sed -i 's|exec /opt/ohos-sdk/ohos/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/ohos/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/ohos/native/sysroot "$@"|' build.sh
           
-          # Set CC/CXX with full path (NOT CROSS_COMPILE)
+          # Set CC/CXX
           sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
           
           # Add --enable-shared to configure
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
-          
-          grep 'ohos-sdk-linux' build.sh | head -1 || true
-          grep 'export CC' build.sh || true
 
       - name: Build
         run: sudo -E bash build.sh
