@@ -140,6 +140,10 @@ jobs:
         run: sudo -E bash scripts/build_python.sh
 
       # === Save cache after all build steps (always, even if some failed) ===
+      - name: Fix permissions for cache
+        if: always()
+        run: sudo chmod -R a+rX /opt/deps /opt/ohos-sdk /opt/python-3.14.6-ohos-arm64 2>/dev/null || true
+
       - name: Save deps cache
         if: always()
         uses: actions/cache/save@v4
