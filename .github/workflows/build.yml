@@ -16,7 +16,7 @@ jobs:
 
       - name: Patch build.sh
         run: |
-          # Skip downloading OHOS ARM64 tools (can't run on x86_64)
+          # Skip downloading OHOS ARM64 tools
           sed -i '/Harmonybrew\/ohos-coreutils/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-unzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-grep/s/^/#SKIP: /' build.sh
@@ -26,20 +26,24 @@ jobs:
           sed -i '/Harmonybrew\/ohos-gzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-perl/s/^/#SKIP: /' build.sh
           
-          # Skip ln -sf of ARM64 tools to /bin (they can't run on x86_64)
-          # But KEEP the wrapper script creation (cat > /bin/) and ln -s for clang wrappers
+          # Skip ln -sf of ARM64 tools to /bin
           sed -i '/^ln -sf.*ohos-arm64/s/^/#SKIP: /' build.sh
           
-          # Skip ln -s in /bin that create cc/gcc/etc (will be handled by wrappers)
+          # Skip ln -s in /bin directory (cc, gcc, ld, etc already exist on GitHub Actions)
+          # These are lines 70-84: ln -s clang cc, ln -s clang gcc, etc
           sed -i '/^ln -s clang/s/^/#SKIP: /' build.sh
-          sed -i '/^ln -sf.*\/bin\//s/^/#SKIP: /' build.sh
+          sed -i '/^ln -s clang++/s/^/#SKIP: /' build.sh
+          sed -i '/^ln -s ld\.lld/s/^/#SKIP: /' build.sh
+          sed -i '/^ln -s llvm-/s/^/#SKIP: /' build.sh
           
           # Add --enable-shared to configure
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
           
-          # Verify
+          # Use system tools instead of /bin wrappers
+          # The wrapper scripts in /bin/ call /opt/ohos-sdk/ohos/native/llvm/bin/clang
+          # which is x64 and should work on GitHub Actions
+          
           grep -c 'SKIP:' build.sh || true
-          grep 'configure' build.sh | grep -v SKIP | head -3 || true
 
       - name: Build
         run: sudo -E bash build.sh
