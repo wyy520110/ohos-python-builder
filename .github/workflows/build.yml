@@ -14,15 +14,25 @@ jobs:
           repository: Harmonybrew/ohos-python
           ref: main
 
-      - name: Check SDK clang binary format
+      - name: Download and inspect SDK
         run: |
           curl -fL -o ohos-sdk.tar.gz https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-windows_linux-public_20260829.tar.gz
-          tar -zxf ohos-sdk.tar.gz -C ./ ohos-sdk/ohos
+          tar -zxf ohos-sdk.tar.gz
+          echo "=== Top level ==="
+          ls -la ohos-sdk/
+          echo "=== ohos dir ==="
+          ls -la ohos-sdk/ohos/ 2>/dev/null || echo "no ohos dir"
+          echo "=== All zip files ==="
+          find . -name "*.zip" -exec ls -lh {} \;
+          echo "=== Try unzip native and check ==="
           cd ohos-sdk/ohos
-          unzip -q native-*.zip
-          file native/llvm/bin/clang
-          file native/llvm/bin/clang++
-          ls -la native/llvm/bin/clang*
+          unzip -q native-ohos-x64-*.zip 2>/dev/null
+          echo "=== native/llvm/bin/ ==="
+          ls -la native/llvm/bin/ 2>/dev/null | head -10
+          echo "=== file clang ==="
+          file native/llvm/bin/clang 2>/dev/null
+          echo "=== Check if there are multiple native zips ==="
+          ls -la native-*.zip 2>/dev/null
 
       - name: Patch build.sh
         run: |
