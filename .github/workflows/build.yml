@@ -59,6 +59,7 @@ jobs:
           in_while_loop = False
           in_for_loop = False
           in_multiline_skip = False
+          in_gettext = False
           new_lines = []
           current_dir = ""
           for i, line in enumerate(lines):
@@ -94,10 +95,13 @@ jobs:
               line = line.replace('/opt/ohos-sdk/ohos/', '/opt/ohos-sdk/linux/')
               if line.strip().startswith('cd ') and 'ohos-sdk' not in line:
                   current_dir = line.strip().split()[1]
+              # Skip gettext entirely (not needed for Python)
+              if 'gettext' in line and ('curl' in line or 'tar' in line or 'cd ' in line or 'make' in line or './configure' in line):
+                  should_skip = True
               if './configure' in line and '--enable-shared' not in line and 'Python' in current_dir:
                   line = line.rstrip() + ' --enable-shared\n'
-              if './configure' in line and '--host' not in line and 'zlib' not in current_dir:
-                  line = line.replace('./configure', './configure --host=aarch64-linux-gnu --build=x86_64-linux-gnu --disable-tests --disable-nls')
+              if './configure' in line and '--host' not in line and 'zlib' not in current_dir and 'gettext' not in line:
+                  line = line.replace('./configure', './configure --host=aarch64-linux-gnu --build=x86_64-linux-gnu')
               if './Configure' in line and 'linux-aarch64' in line:
                   new_lines.append(line)
                   new_lines.append('sed -i "s/\\bprivate\\b/priv/g" apps/include/apps.h\n')
