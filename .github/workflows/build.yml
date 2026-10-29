@@ -30,22 +30,19 @@ jobs:
           sed -i '/^ln -s ld\.lld/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s llvm-/s/^/#SKIP: /' build.sh
           
-          # Use linux SDK
+          # Use linux SDK globally
           sed -i 's|ohos-sdk/ohos|ohos-sdk/linux|g' build.sh
           sed -i 's|unzip -q native-\*.zip|unzip -q native-linux-*.zip|' build.sh
           sed -i 's|unzip -q toolchains-\*.zip|unzip -q toolchains-linux-*.zip|' build.sh
           
-          # Fix wrapper scripts
+          # Fix wrapper scripts - add -x c for clang (force C mode for .c files)
           sed -i 's|exec /opt/ohos-sdk/ohos/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/linux/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"|' build.sh
           
-          # Set CC/CXX - use -x c for C files to avoid C++ keyword issues
-          sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
+          # Set CC with -x c to force C compilation (fixes 'private' keyword issue)
+          sed -i '/^export CFLAGS/a export CC="/bin/clang -x c"\nexport CXX="/bin/clang++ -x c++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
           
           # Add --enable-shared
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
-          
-          # Fix binary-sign-tool path
-          sed -i 's|/opt/ohos-sdk/ohos/toolchains|/opt/ohos-sdk/linux/toolchains|' build.sh
 
       - name: Build
         run: sudo -E bash build.sh
