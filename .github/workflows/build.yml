@@ -83,16 +83,17 @@ jobs:
           echo "CHOST=aarch64-linux-gnu" >> $GITHUB_ENV
           echo "BUILD_PYTHON=$(which python3)" >> $GITHUB_ENV
 
-      # === PRIORITY: sqlite and Python first (fail fast) ===
-      - name: Build sqlite
-        id: sqlite
-        run: sudo -E bash scripts/build_sqlite.sh
-
+      # === PRIORITY: Python first (fail fast) ===
       - name: Build Python
         id: python
         run: sudo -E bash scripts/build_python.sh
 
       # === Already succeeded - will auto-skip from artifact ===
+      - name: Build sqlite
+        id: sqlite
+        continue-on-error: true
+        run: sudo -E bash scripts/build_sqlite.sh
+
       - name: Build OpenSSL
         id: openssl
         continue-on-error: true
