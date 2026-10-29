@@ -38,6 +38,10 @@ jobs:
               echo "exec /opt/ohos-sdk/linux/native/llvm/bin/$tool \"\$@\"" | sudo tee -a /bin/$tool
               sudo chmod 0755 /bin/$tool
           done
+          # Create strip wrapper (use llvm-strip)
+          echo '#!/bin/sh' | sudo tee /bin/strip
+          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/llvm-strip "$@"' | sudo tee -a /bin/strip
+          sudo chmod 0755 /bin/strip
 
       - name: Patch and build
         run: |
@@ -95,7 +99,6 @@ jobs:
               line = line.replace('/opt/ohos-sdk/ohos/', '/opt/ohos-sdk/linux/')
               if line.strip().startswith('cd ') and 'ohos-sdk' not in line:
                   current_dir = line.strip().split()[1]
-              # Track gettext directory - skip all commands inside it
               if 'cd gettext' in line:
                   in_gettext = True
               if in_gettext:
@@ -126,6 +129,7 @@ jobs:
           export AR="/bin/llvm-ar"
           export RANLIB="/bin/llvm-ranlib"
           export LD="/bin/ld.lld"
+          export STRIP="/bin/strip"
           export CHOST="aarch64-linux-gnu"
           sudo -E bash build.sh
 
