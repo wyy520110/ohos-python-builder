@@ -13,7 +13,7 @@ fi
 cd $WORKDIR/deps 2>/dev/null || { mkdir -p $WORKDIR/deps && cd $WORKDIR/deps; }
 
 if [ ! -d xz-5.8.1 ]; then
-    curl -fLO https://tukaani.org/xz/xz-5.8.1.tar.gz
+    curl -fLO https://github.com/tukaani-project/xz/releases/download/v5.8.1/xz-5.8.1.tar.gz
     tar -zxf xz-5.8.1.tar.gz
     rm -rf xz-5.8.1.tar.gz
 fi
