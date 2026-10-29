@@ -91,6 +91,9 @@ jobs:
                   else:
                       should_skip = True
               line = line.replace('/opt/ohos-sdk/ohos/', '/opt/ohos-sdk/linux/')
+              # Add no-cxx to OpenSSL Configure to prevent C++ compilation
+              if './Configure' in line and 'linux-aarch64' in line:
+                  line = line.replace('linux-aarch64', 'linux-aarch64 no-cxx')
               if './configure' in line and '--enable-shared' not in line:
                   line = line.rstrip() + ' --enable-shared\n'
               if should_skip:
@@ -101,13 +104,10 @@ jobs:
               f.writelines(new_lines)
           print(f"Patched {len(new_lines)} lines")
           PYEOF
-          # Fix OpenSSL private keyword
-          sed -i '/\.\/Configure.*linux-aarch64/a sed -i "s/\\bprivate\\b/priv/g" apps/include/apps.h' build.sh
           export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
           export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
           export LDFLAGS="-L/opt/deps/lib"
           export CC="/bin/clang"
-          # Don't set CXX - OpenSSL uses it for C++ compilation which causes type errors
           unset CXX
           export AR="/bin/llvm-ar"
           export RANLIB="/bin/llvm-ranlib"
@@ -116,9 +116,9 @@ jobs:
 
       - name: Check output
         run: |
-          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null; echo "No python3 found"
-          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null; echo "No libpython found"
-          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null; echo "No bin dir"
+          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
+          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No libpython found"
+          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null || echo "No bin dir"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
