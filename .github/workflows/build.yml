@@ -54,9 +54,10 @@ jobs:
               'tar.*ohos-sdk',
               'cd ohos-sdk',
               'unzip -q',
+              'xargs.*tar',
+              'rm -rf *.tar.gz',
           ]
           
-          # Track loops to skip entirely (while and for)
           in_while_loop = False
           in_for_loop = False
           new_lines = []
@@ -66,7 +67,6 @@ jobs:
                   if pat in line:
                       should_skip = True
                       break
-              # Track while loop for tool download (line 24-26)
               if 'while read' in line:
                   in_while_loop = True
                   should_skip = True
@@ -76,7 +76,6 @@ jobs:
                       should_skip = True
                   else:
                       should_skip = True
-              # Track for loop for wrapper creation (line 60-66)
               if line.strip().startswith('for executable in'):
                   in_for_loop = True
                   should_skip = True
@@ -86,9 +85,7 @@ jobs:
                       should_skip = True
                   else:
                       should_skip = True
-              # Fix ohos path
               line = line.replace('/opt/ohos-sdk/ohos/', '/opt/ohos-sdk/linux/')
-              # Add --enable-shared
               if './configure' in line and '--enable-shared' not in line:
                   line = line.rstrip() + ' --enable-shared\n'
               if should_skip:
