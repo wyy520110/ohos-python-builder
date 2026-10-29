@@ -101,8 +101,8 @@ jobs:
               f.writelines(new_lines)
           print(f"Patched {len(new_lines)} lines")
           PYEOF
-          # Fix OpenSSL: after Configure, patch Makefile to use CC instead of CXX
-          sed -i '/\.\/Configure.*linux-aarch64/a sed -i "s/CXX = .*/CXX = \$(CC)/" Makefile' build.sh
+          # Fix OpenSSL: after Configure, replace CXX with CC in Makefile
+          sed -i '/\.\/Configure.*linux-aarch64/a sed -i "s/CXX = .*/CXX = \\\$(CC)/" Makefile' build.sh
           export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
           export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
           export LDFLAGS="-L/opt/deps/lib"
