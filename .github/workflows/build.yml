@@ -40,9 +40,9 @@ jobs:
           sudo chmod 0755 /bin/clang++
           
           for tool in ld.lld llvm-ar llvm-ranlib llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip llvm-addr2line llvm-cxxfilt llvm-size llvm-strings; do
-              echo '#!/bin/sh' | sudo tee /bin/
-              echo "exec /opt/ohos-sdk/linux/native/llvm/bin/ \"\$@\"" | sudo tee -a /bin/
-              sudo chmod 0755 /bin/
+              echo '#!/bin/sh' | sudo tee /bin/$tool
+              echo "exec /opt/ohos-sdk/linux/native/llvm/bin/$tool \"\$@\"" | sudo tee -a /bin/$tool
+              sudo chmod 0755 /bin/$tool
           done
 
       - name: Patch and build
