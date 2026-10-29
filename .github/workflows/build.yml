@@ -14,49 +14,43 @@ jobs:
           repository: Harmonybrew/ohos-python
           ref: main
 
-      - name: Create patched build.sh
+      - name: Create and run patched build
         run: |
-          # Instead of patching with sed, write a wrapper script that sets up
-          # the environment and then calls the original build.sh
           cat > patched-build.sh << 'WRAPPER_EOF'
           #!/bin/bash
           set -ex
+          WORKDIR=D:\work\alphaclaw-client-tauri
           
           # Download and setup OHOS SDK (linux x64 version)
           curl -fL -o ohos-sdk.tar.gz https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-windows_linux-public_20260829.tar.gz
           tar -zxf ohos-sdk.tar.gz -C ./ ohos-sdk/linux
           rm -rf ohos-sdk.tar.gz
           cd ohos-sdk/linux
-          unzip -q native-linux-*.zip
-          unzip -q toolchains-linux-*.zip
+          unzip -q native-linux-x64-*.zip
+          unzip -q toolchains-linux-x64-*.zip
           rm -rf *.zip
-          cd 
+          cd ""
           
-          # Create compiler wrappers in /bin
-          # clang wrapper with -x c (force C mode for .c files, fixes 'private' keyword)
-          cat > /bin/clang << 'EOF'
-          #!/bin/sh
-          exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"
-          EOF
-          
-          cat > /bin/clang++ << 'EOF'
-          #!/bin/sh
-          exec /opt/ohos-sdk/linux/native/llvm/bin/clang++ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"
-          EOF
-          
-          # Create wrappers for other tools
-          for tool in ld.lld llvm-ar llvm-ranlib llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip llvm-addr2line llvm-cxxfilt llvm-size llvm-strings; do
-              cat > /bin/ << EOF
-          #!/bin/sh
-          exec /opt/ohos-sdk/linux/native/llvm/bin/ "\$@"
-          EOF
-              chmod 0755 /bin/
-          done
-          chmod 0755 /bin/clang /bin/clang++
-          
-          # Copy SDK to /opt for build.sh to find
+          # Copy SDK to /opt
           mkdir -p /opt/ohos-sdk
           cp -r ohos-sdk/linux /opt/ohos-sdk/linux
+          
+          # Create clang wrapper (C mode by default, -x c)
+          echo '#!/bin/sh' > /bin/clang
+          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "$@"' >> /bin/clang
+          chmod 0755 /bin/clang
+          
+          # Create clang++ wrapper (C++ mode)
+          echo '#!/bin/sh' > /bin/clang++
+          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang++ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"' >> /bin/clang++
+          chmod 0755 /bin/clang++
+          
+          # Create wrappers for other LLVM tools
+          for tool in ld.lld llvm-ar llvm-ranlib llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip llvm-addr2line llvm-cxxfilt llvm-size llvm-strings; do
+              echo "#!/bin/sh" > /bin/
+              echo "exec /opt/ohos-sdk/linux/native/llvm/bin/ \"\$@\"" >> /bin/
+              chmod 0755 /bin/
+          done
           
           # Set environment
           export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
@@ -68,19 +62,21 @@ jobs:
           export RANLIB="/bin/llvm-ranlib"
           export LD="/bin/ld.lld"
           
-          # Now run the original build.sh but skip SDK setup and tool download
-          # by commenting out those sections
+          # Patch build.sh: skip tool downloads, SDK setup, ln commands
           sed -i '/Harmonybrew\/ohos/s/^/#SKIP: /' build.sh
-          sed -i '/^ln -sf.*ohos-arm64/s/^/#SKIP: /' build.sh
+          sed -i '/^ln -sf/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s /s/^/#SKIP: /' build.sh
           sed -i '/curl.*ohos-sdk/s/^/#SKIP: /' build.sh
           sed -i '/tar.*ohos-sdk/s/^/#SKIP: /' build.sh
           sed -i '/cd ohos-sdk/s/^/#SKIP: /' build.sh
           sed -i '/unzip -q/s/^/#SKIP: /' build.sh
-          sed -i '/cat.*>.*\/bin\//s/^/#SKIP: /' build.sh
-          sed -i '/chmod.*\/bin\//s/^/#SKIP: /' build.sh
+          sed -i '/cat.*<<EOF.*\/bin/s/^/#SKIP: /' build.sh
           sed -i '/^for executable/s/^/#SKIP: /' build.sh
           sed -i '/^essential_tools/s/^/#SKIP: /' build.sh
+          sed -i '/^    cat/s/^/#SKIP: /' build.sh
+          sed -i '/^    chmod/s/^/#SKIP: /' build.sh
+          sed -i '/^done/s/^/#SKIP: /' build.sh
+          sed -i '/^EOF/s/^/#SKIP: /' build.sh
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
           
           # Run the patched build.sh
