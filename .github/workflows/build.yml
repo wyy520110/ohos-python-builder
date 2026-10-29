@@ -35,13 +35,11 @@ jobs:
           sed -i '/^ln -s ld\.lld/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s llvm-/s/^/#SKIP: /' build.sh
           
-          # Fix wrapper scripts: add --target=aarch64-linux-ohos
-          # Original: exec /opt/ohos-sdk/ohos/native/llvm/bin/ "$@"
-          # Fixed:   exec /opt/ohos-sdk/ohos/native/llvm/bin/ --target=aarch64-linux-ohos "$@"
-          sed -i 's|exec /opt/ohos-sdk/ohos/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/ohos/native/llvm/bin/ --target=aarch64-linux-ohos "$@"|' build.sh
+          # Fix wrapper scripts: add --target=aarch64-linux-ohos and --sysroot
+          sed -i 's|exec /opt/ohos-sdk/ohos/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/ohos/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/ohos/native/sysroot "$@"|' build.sh
           
-          # Also set CC/CXX/CROSS_COMPILE environment variables
-          sed -i '/^export CFLAGS/a export CC="clang --target=aarch64-linux-ohos"\nexport CXX="clang++ --target=aarch64-linux-ohos"\nexport AR="llvm-ar"\nexport RANLIB="llvm-ranlib"\nexport CROSS_COMPILE="aarch64-linux-ohos-"' build.sh
+          # Set CC/CXX with full path and target (NOT CROSS_COMPILE - OpenSSL uses it to prefix command names)
+          sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"\nexport AS="/bin/clang"' build.sh
           
           # Add --enable-shared to configure
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
