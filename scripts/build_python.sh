@@ -74,6 +74,18 @@ if [ ! -f $DEPS_DIR/include/zstd.h ]; then
     rm -rf Modules/_zstd
 fi
 
+# Fix ffi: find ffi.h (libffi installs to libdir/include)
+FFI_INC=$(find $DEPS_DIR -name "ffi.h" -printf "%h\n" 2>/dev/null | head -1)
+if [ -n "$FFI_INC" ]; then
+    echo "=== Found ffi.h in $FFI_INC, creating symlink ==="
+    ln -sf $FFI_INC/ffi.h ./Include/ffi.h
+    ln -sf $FFI_INC/ffitarget.h ./Include/ffitarget.h 2>/dev/null || true
+else
+    echo "=== ffi.h not found, disabling _ctypes module ==="
+    sed -i 's|_ctypes _ctypes/|##_ctypes _ctypes/|' Modules/Setup.stdlib 2>/dev/null || true
+    rm -rf Modules/_ctypes
+fi
+
 make -j$(nproc)
 make install
 
