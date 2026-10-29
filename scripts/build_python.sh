@@ -51,7 +51,15 @@ echo "PLATFORM_TRIPLET=aarch64-linux-musl" > Misc/platform_triplet.c
     LD=/bin/ld.lld \
     CFLAGS="$CFLAGS -DNO_GETTEXT"
 
-make -j$(nproc)
+make -j$(nproc) || {
+    # Fix _localemodule.c: stub out gettext functions if libintl not available
+    sed -i 's/textdomain(domain)/(char*)0/' Modules/_localemodule.c
+    sed -i 's/bindtextdomain(domain, dirname)/(char*)0/' Modules/_localemodule.c
+    sed -i 's/bindtextdomain(domain, dirname)/(char*)0/' Modules/_localemodule.c
+    # Add stub declarations
+    sed -i '/#include/i\char *textdomain(const char *d) { return (char*)d; }\nchar *bindtextdomain(const char *d, const char *dir) { return (char*)dir; }' Modules/_localemodule.c
+    make -j$(nproc)
+}
 make install
 
 # Copy dependency libs
