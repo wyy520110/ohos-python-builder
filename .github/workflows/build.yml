@@ -14,20 +14,9 @@ jobs:
           repository: Harmonybrew/ohos-python
           ref: main
 
-      - name: Check SDK clang format
-        run: |
-          # Download SDK and check clang
-          curl -fL -o ohos-sdk.tar.gz https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-windows_linux-public_20260829.tar.gz
-          tar -zxf ohos-sdk.tar.gz -C ./ ohos-sdk/ohos 2>/dev/null || tar -zxf ohos-sdk.tar.gz 2>/dev/null
-          find . -name "clang" -type f | head -5
-          file ./ohos-sdk/ohos/native/llvm/bin/clang 2>/dev/null || echo "clang not found at expected path"
-          find . -name "clang" -exec file {} \; 2>/dev/null | head -5
-          ls -la ohos-sdk/ 2>/dev/null || echo "no ohos-sdk dir"
-          ls -la ohos-sdk/ohos/ 2>/dev/null || echo "no ohos-sdk/ohos dir"
-          ls -la ohos-sdk/ohos/native/llvm/bin/ 2>/dev/null | head -10 || echo "no llvm/bin dir"
-
       - name: Patch build.sh
         run: |
+          # Skip downloading OHOS ARM64 tools (can't run on x86_64)
           sed -i '/Harmonybrew\/ohos-coreutils/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-unzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-grep/s/^/#SKIP: /' build.sh
@@ -36,9 +25,21 @@ jobs:
           sed -i '/Harmonybrew\/ohos-tar/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-gzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-perl/s/^/#SKIP: /' build.sh
-          sed -i 's/^ln -sf/#SKIP: ln -sf/' build.sh
+          
+          # Skip ln -sf of ARM64 tools to /bin (they can't run on x86_64)
+          # But KEEP the wrapper script creation (cat > /bin/) and ln -s for clang wrappers
+          sed -i '/^ln -sf.*ohos-arm64/s/^/#SKIP: /' build.sh
+          
+          # Skip ln -s in /bin that create cc/gcc/etc (will be handled by wrappers)
+          sed -i '/^ln -s clang/s/^/#SKIP: /' build.sh
+          sed -i '/^ln -sf.*\/bin\//s/^/#SKIP: /' build.sh
+          
+          # Add --enable-shared to configure
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
-          sed -i '/cat.*>.*\/bin\//s/^/#SKIP: /' build.sh
+          
+          # Verify
+          grep -c 'SKIP:' build.sh || true
+          grep 'configure' build.sh | grep -v SKIP | head -3 || true
 
       - name: Build
         run: sudo -E bash build.sh
