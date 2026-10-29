@@ -43,10 +43,8 @@ jobs:
         run: |
           set -ex
           python3 << 'PYEOF'
-          import re
           with open('build.sh', 'r') as f:
               lines = f.readlines()
-          
           skip_patterns = [
               'Harmonybrew/ohos-',
               'ln -sf',
@@ -55,10 +53,9 @@ jobs:
               'tar.*ohos-sdk',
               'cd ohos-sdk',
               'unzip -q',
-              'xargs',  # skip any line with xargs
+              'xargs',
               'rm -rf *.tar.gz',
           ]
-          
           in_while_loop = False
           in_for_loop = False
           in_multiline_skip = False
@@ -100,12 +97,13 @@ jobs:
                   new_lines.append('#SKIP: ' + line)
               else:
                   new_lines.append(line)
-          
           with open('build.sh', 'w') as f:
               f.writelines(new_lines)
           print(f"Patched {len(new_lines)} lines")
           PYEOF
-          
+          # Fix OpenSSL private keyword: patch apps.h after Configure
+          # Add sed after the Configure line
+          sed -i '/\.\/Configure.*linux-aarch64/a sed -i "s/\\bprivate\\b/priv/g" apps/include/apps.h' build.sh
           export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
           export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
           export LDFLAGS="-L/opt/deps/lib"
