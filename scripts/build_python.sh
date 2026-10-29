@@ -31,8 +31,8 @@ echo "PLATFORM_TRIPLET=aarch64-linux-musl" > Misc/platform_triplet.c
 
 # Configure with cross-compiling support
 ./configure \
-    --build=aarch64-linux-musl \
-    --host=aarch64-linux-musl \
+    --build=x86_64-linux-gnu \
+    --host=aarch64-linux-gnu \
     --prefix=$PREFIX \
     --with-openssl=$DEPS_DIR \
     --disable-ipv6 \
@@ -43,7 +43,6 @@ echo "PLATFORM_TRIPLET=aarch64-linux-musl" > Misc/platform_triplet.c
     ac_cv_file__dev_ptmx=yes \
     ac_cv_file__dev_ptc=no \
     ac_cv_buggy_getaddrinfo=no \
-    --with-build-python=$BUILD_PYTHON \
     LDFLAGS="-L$DEPS_DIR/lib -Wl,-rpath,'\$\$ORIGIN/../lib' -Wl,-rpath,'\$\$ORIGIN/../../../lib'"
 
 make -j$(nproc)
