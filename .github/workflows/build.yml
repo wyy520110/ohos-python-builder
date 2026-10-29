@@ -46,13 +46,11 @@ jobs:
           echo '#!/bin/sh' | sudo tee /bin/strip
           echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/llvm-strip "$@"' | sudo tee -a /bin/strip
           sudo chmod 0755 /bin/strip
-          echo "Build Python: $(python3 --version)"
 
       - name: Patch and build
         run: |
           set -ex
           BUILD_PYTHON=$(which python3)
-          echo "Build Python: $BUILD_PYTHON ($(python3 --version))"
           python3 << PYEOF
           with open('build.sh', 'r') as f:
               lines = f.readlines()
@@ -112,19 +110,15 @@ jobs:
                   should_skip = True
                   if line.strip() == 'cd $WORKDIR' or line.strip().startswith('cd /'):
                       in_gettext = False
-              if './configure' in line:
-                  if 'Python' in current_dir:
-                      if '--enable-shared' not in line:
-                          line = line.rstrip() + ' --enable-shared\n'
-                      if '--with-build-python' not in line:
-                          line = line.rstrip() + ' --with-build-python=$BUILD_PYTHON\n'
-                      if '--build' not in line:
-                          line = line.rstrip() + ' --build=x86_64-linux-gnu --host=aarch64-linux-gnu\n'
-                  elif 'zlib' not in current_dir and not in_gettext and '--host' not in line:
-                      line = line.replace('./configure', './configure --host=aarch64-linux-gnu --build=x86_64-linux-gnu')
+              # Add --host to non-Python configure commands
+              if './configure' in line and 'Python' not in current_dir and 'zlib' not in current_dir and not in_gettext and '--host' not in line:
+                  line = line.replace('./configure', './configure --host=aarch64-linux-gnu --build=x86_64-linux-gnu')
+              # For Python configure: add --enable-shared and --with-build-python to LDFLAGS line (last line of multi-line command)
+              if 'Python' in current_dir and 'LDFLAGS=' in line and '--enable-shared' not in line:
+                  line = line.rstrip().rstrip('\\\\') + ' --enable-shared --with-build-python=$BUILD_PYTHON\\\\n'
               if './Configure' in line and 'linux-aarch64' in line:
                   new_lines.append(line)
-                  new_lines.append('sed -i "s/\\\\bprivate\\\\b/priv/g" apps/include/apps.h\n')
+                  new_lines.append('sed -i "s/\\\\bprivate\\\\b/priv/g" apps/include/apps.h\\\\n')
                   should_skip = True
               if should_skip:
                   new_lines.append('#SKIP: ' + line)
