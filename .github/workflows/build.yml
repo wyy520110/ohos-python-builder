@@ -91,9 +91,6 @@ jobs:
                   else:
                       should_skip = True
               line = line.replace('/opt/ohos-sdk/ohos/', '/opt/ohos-sdk/linux/')
-              # Add no-cxx to OpenSSL Configure to prevent C++ compilation
-              if './Configure' in line and 'linux-aarch64' in line:
-                  line = line.replace('linux-aarch64', 'linux-aarch64 no-cxx')
               if './configure' in line and '--enable-shared' not in line:
                   line = line.rstrip() + ' --enable-shared\n'
               if should_skip:
@@ -104,6 +101,8 @@ jobs:
               f.writelines(new_lines)
           print(f"Patched {len(new_lines)} lines")
           PYEOF
+          # Fix OpenSSL: after Configure, patch Makefile to use CC instead of CXX
+          sed -i '/\.\/Configure.*linux-aarch64/a sed -i "s/CXX = .*/CXX = \$(CC)/" Makefile' build.sh
           export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
           export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
           export LDFLAGS="-L/opt/deps/lib"
