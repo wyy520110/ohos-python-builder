@@ -7,6 +7,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      WORKDIR: ${{ github.workspace }}
     steps:
       - name: Checkout Harmonybrew/ohos-python
         uses: actions/checkout@v4
