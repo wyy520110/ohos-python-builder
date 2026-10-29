@@ -14,9 +14,8 @@ jobs:
           repository: Harmonybrew/ohos-python
           ref: main
 
-      - name: Patch build.sh - use linux SDK instead of ohos SDK
+      - name: Patch build.sh
         run: |
-          # Skip downloading OHOS ARM64 tools
           sed -i '/Harmonybrew\/ohos-coreutils/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-unzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-grep/s/^/#SKIP: /' build.sh
@@ -25,47 +24,28 @@ jobs:
           sed -i '/Harmonybrew\/ohos-tar/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-gzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-perl/s/^/#SKIP: /' build.sh
-          
-          # Skip ln -sf of ARM64 tools to /bin
           sed -i '/^ln -sf.*ohos-arm64/s/^/#SKIP: /' build.sh
-          
-          # Skip ln -s in /bin directory
           sed -i '/^ln -s clang/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s clang++/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s ld\.lld/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s llvm-/s/^/#SKIP: /' build.sh
           
-          # KEY FIX: Extract linux SDK instead of ohos SDK
-          # Original: tar -zxf ohos-sdk.tar.gz -C ./ ohos-sdk/ohos
-          # Fixed:   tar -zxf ohos-sdk.tar.gz -C ./ ohos-sdk/linux
-          sed -i 's|ohos-sdk/ohos|ohos-sdk/linux|' build.sh
-          
-          # KEY FIX: cd to linux dir instead of ohos dir
-          sed -i 's|cd ohos-sdk/ohos|cd ohos-sdk/linux|' build.sh
-          
-          # KEY FIX: unzip linux native instead of ohos native
-          # Original: unzip -q native-*.zip
-          # The linux dir has native-linux-x64-*.zip
+          # Use linux SDK
+          sed -i 's|ohos-sdk/ohos|ohos-sdk/linux|g' build.sh
           sed -i 's|unzip -q native-\*.zip|unzip -q native-linux-*.zip|' build.sh
           sed -i 's|unzip -q toolchains-\*.zip|unzip -q toolchains-linux-*.zip|' build.sh
           
-          # Fix wrapper scripts: add --target and --sysroot
+          # Fix wrapper scripts
           sed -i 's|exec /opt/ohos-sdk/ohos/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/linux/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"|' build.sh
           
-          # Set CC/CXX
+          # Set CC/CXX - use -x c for C files to avoid C++ keyword issues
           sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
           
-          # Add --enable-shared to configure
+          # Add --enable-shared
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
           
           # Fix binary-sign-tool path
           sed -i 's|/opt/ohos-sdk/ohos/toolchains|/opt/ohos-sdk/linux/toolchains|' build.sh
-          
-          # Verify key changes
-          echo "=== Key changes ==="
-          grep 'ohos-sdk/linux' build.sh | head -5 || true
-          grep 'native-linux' build.sh | head -2 || true
-          grep 'export CC' build.sh || true
 
       - name: Build
         run: sudo -E bash build.sh
