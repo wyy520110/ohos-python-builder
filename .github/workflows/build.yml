@@ -14,7 +14,7 @@ jobs:
           repository: Harmonybrew/ohos-python
           ref: main
 
-      - name: Install Python 3.14 for cross compiling
+      - name: Install Python 3.14
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
@@ -46,14 +46,14 @@ jobs:
           echo '#!/bin/sh' | sudo tee /bin/strip
           echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/llvm-strip "$@"' | sudo tee -a /bin/strip
           sudo chmod 0755 /bin/strip
-          # Find Python 3.14 path
-          which python3.14 || echo "python3.14 not found"
-          python3.14 --version || echo "python3.14 not available"
+          echo "Build Python: $(python3 --version)"
 
       - name: Patch and build
         run: |
           set -ex
-          python3 << 'PYEOF'
+          BUILD_PYTHON=$(which python3)
+          echo "Build Python: $BUILD_PYTHON ($(python3 --version))"
+          python3 << PYEOF
           with open('build.sh', 'r') as f:
               lines = f.readlines()
           skip_patterns = [
@@ -81,9 +81,9 @@ jobs:
                       break
               if in_multiline_skip:
                   should_skip = True
-                  if not line.rstrip().endswith('\\'):
+                  if not line.rstrip().endswith('\\\\'):
                       in_multiline_skip = False
-              elif should_skip and line.rstrip().endswith('\\'):
+              elif should_skip and line.rstrip().endswith('\\\\'):
                   in_multiline_skip = True
               if 'while read' in line:
                   in_while_loop = True
@@ -117,14 +117,14 @@ jobs:
                       if '--enable-shared' not in line:
                           line = line.rstrip() + ' --enable-shared\n'
                       if '--with-build-python' not in line:
-                          line = line.rstrip() + ' --with-build-python=$(which python3.14)\n'
+                          line = line.rstrip() + ' --with-build-python=$BUILD_PYTHON\n'
                       if '--build' not in line:
                           line = line.rstrip() + ' --build=x86_64-linux-gnu --host=aarch64-linux-gnu\n'
                   elif 'zlib' not in current_dir and not in_gettext and '--host' not in line:
                       line = line.replace('./configure', './configure --host=aarch64-linux-gnu --build=x86_64-linux-gnu')
               if './Configure' in line and 'linux-aarch64' in line:
                   new_lines.append(line)
-                  new_lines.append('sed -i "s/\\bprivate\\b/priv/g" apps/include/apps.h\n')
+                  new_lines.append('sed -i "s/\\\\bprivate\\\\b/priv/g" apps/include/apps.h\n')
                   should_skip = True
               if should_skip:
                   new_lines.append('#SKIP: ' + line)
