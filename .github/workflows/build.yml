@@ -22,13 +22,11 @@ jobs:
           tar -zxf ohos-sdk.tar.gz
           rm -rf ohos-sdk.tar.gz
           
-          ROOT_DIR=pwd
-          
           cd ohos-sdk/linux
           unzip -q native-linux-x64-*.zip
           unzip -q toolchains-linux-x64-*.zip
           rm -rf *.zip
-          cd "$ROOT_DIR"
+          cd -
           
           sudo mkdir -p /opt/ohos-sdk
           sudo cp -r ohos-sdk/linux /opt/ohos-sdk/linux
