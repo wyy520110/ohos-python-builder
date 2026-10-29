@@ -91,6 +91,6 @@ make -j$(nproc)
 make install
 
 # Copy dependency libs
-cp $DEPS_DIR/lib/*so* $PREFIX/lib/
+cp /opt/deps/lib/*.so* $PREFIX/lib/ 2>/dev/null || true
 
 echo "=== Python build complete ==="
