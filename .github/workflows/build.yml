@@ -7,8 +7,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    env:
-      WORKDIR: ${{ github.workspace }}
     steps:
       - name: Checkout Harmonybrew/ohos-python
         uses: actions/checkout@v4
@@ -24,11 +22,13 @@ jobs:
           tar -zxf ohos-sdk.tar.gz
           rm -rf ohos-sdk.tar.gz
           
+          ROOT_DIR=pwd
+          
           cd ohos-sdk/linux
           unzip -q native-linux-x64-*.zip
           unzip -q toolchains-linux-x64-*.zip
           rm -rf *.zip
-          cd ""
+          cd "$ROOT_DIR"
           
           sudo mkdir -p /opt/ohos-sdk
           sudo cp -r ohos-sdk/linux /opt/ohos-sdk/linux
