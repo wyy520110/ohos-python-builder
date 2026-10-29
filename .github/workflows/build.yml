@@ -14,6 +14,11 @@ jobs:
           repository: Harmonybrew/ohos-python
           ref: main
 
+      - name: Install Python 3.14 for cross compiling
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
       - name: Setup SDK and compilers
         run: |
           set -ex
@@ -41,6 +46,9 @@ jobs:
           echo '#!/bin/sh' | sudo tee /bin/strip
           echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/llvm-strip "$@"' | sudo tee -a /bin/strip
           sudo chmod 0755 /bin/strip
+          # Find Python 3.14 path
+          which python3.14 || echo "python3.14 not found"
+          python3.14 --version || echo "python3.14 not available"
 
       - name: Patch and build
         run: |
@@ -104,14 +112,12 @@ jobs:
                   should_skip = True
                   if line.strip() == 'cd $WORKDIR' or line.strip().startswith('cd /'):
                       in_gettext = False
-              # Handle configure commands
               if './configure' in line:
                   if 'Python' in current_dir:
-                      # Python configure: add --enable-shared, --with-build-python, --build, --host
                       if '--enable-shared' not in line:
                           line = line.rstrip() + ' --enable-shared\n'
                       if '--with-build-python' not in line:
-                          line = line.rstrip() + ' --with-build-python=/usr/bin/python3\n'
+                          line = line.rstrip() + ' --with-build-python=$(which python3.14)\n'
                       if '--build' not in line:
                           line = line.rstrip() + ' --build=x86_64-linux-gnu --host=aarch64-linux-gnu\n'
                   elif 'zlib' not in current_dir and not in_gettext and '--host' not in line:
