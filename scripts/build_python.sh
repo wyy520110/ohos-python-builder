@@ -81,7 +81,10 @@ if [ -n "$FFI_INC" ]; then
     ln -sf $FFI_INC/ffitarget.h ./Include/ffitarget.h 2>/dev/null || true
 else
     echo "=== ffi.h not found, disabling _ctypes module ==="
-    sed -i 's|_ctypes _ctypes/|##_ctypes _ctypes/|' Modules/Setup.stdlib 2>/dev/null || true
+    # Disable in Setup.stdlib
+    sed -i 's|_ctypes|##_ctypes|g' Modules/Setup.stdlib 2>/dev/null || true
+    # Also remove from Makefile
+    sed -i '/_ctypes/d' Makefile 2>/dev/null || true
 fi
 
 make -j$(nproc)
