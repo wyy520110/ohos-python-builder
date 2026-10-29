@@ -32,13 +32,14 @@ jobs:
           sed -i 's|ohos-sdk/ohos|ohos-sdk/linux|g' build.sh
           sed -i 's|unzip -q native-\*.zip|unzip -q native-linux-*.zip|' build.sh
           sed -i 's|unzip -q toolchains-\*.zip|unzip -q toolchains-linux-*.zip|' build.sh
-          sed -i 's|exec /opt/ohos-sdk/linux/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/linux/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"|' build.sh
-          # ARM defines only
+          # Replace the entire wrapper creation block with custom logic
+          # that adds -x c ONLY for clang (not clang++)
+          sed -i '/cat <<EOF > \/bin\/\/,/EOF/d' build.sh
+          # Insert custom wrapper creation after the for loop
+          sed -i '/for executable in \/i # Custom wrapper creation\nfor executable in ; do\n    if [ "" = "clang" ] || [ "" = "clang-cpp" ]; then\n        cat <<EOF > /bin/\n#!/bin/sh\nexec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "$@"\nEOF\n    elif [ "" = "clang++" ]; then\n        cat <<EOF > /bin/\n#!/bin/sh\nexec /opt/ohos-sdk/linux/native/llvm/bin/clang++ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"\nEOF\n    else\n        cat <<EOF > /bin/\n#!/bin/sh\nexec /opt/ohos-sdk/linux/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"\nEOF\n    fi\n    chmod 0755 /bin/\ndone\n# Skip original for loop' build.sh
+          # ARM defines
           sed -i 's|export CFLAGS="-fPIC"|export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"|' build.sh
-          # Set CC but NOT CXX (OpenSSL uses CC for C files, CXX only for C++ files)
-          sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
-          # Unset CXX to prevent OpenSSL from using C++ compiler for C files
-          sed -i '/^export CFLAGS/a unset CXX' build.sh
+          sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
 
       - name: Build
