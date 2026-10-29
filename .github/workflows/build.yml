@@ -35,17 +35,18 @@ jobs:
           sed -i 's|unzip -q native-\*.zip|unzip -q native-linux-*.zip|' build.sh
           sed -i 's|unzip -q toolchains-\*.zip|unzip -q toolchains-linux-*.zip|' build.sh
           
-          # Fix wrapper scripts
-          sed -i 's|exec /opt/ohos-sdk/ohos/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/linux/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"|' build.sh
+          # Fix wrapper scripts - clang wrapper forces C mode, clang++ forces C++ mode
+          # clang wrapper: add -x c for .c files
+          sed -i '/cat <<EOF > \/bin\/\/i # Custom wrapper for clang to force C mode\nif [ "" = "clang" ] || [ "" = "clang-cpp" ]; then\n  cat <<EOF > /bin/\n#!/bin/sh\nexec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "\$@"\nEOF\nelif [ "" = "clang++" ]; then\n  cat <<EOF > /bin/\n#!/bin/sh\nexec /opt/ohos-sdk/linux/native/llvm/bin/clang++ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "\$@"\nEOF\nelse' build.sh
           
-          # Set CC/CXX without -x c (let OpenSSL Configure detect compiler properly)
+          # Set CC/CXX
           sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
-          
-          # Fix OpenSSL: add -D__aarch64__ to CFLAGS for ARM detection
-          sed -i 's|export CFLAGS="-fPIC"|export CFLAGS="-fPIC -D__aarch64__ -U__OHOS__"|' build.sh
           
           # Add --enable-shared
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
+          
+          # Verify
+          grep -A2 'Custom wrapper' build.sh | head -5 || true
 
       - name: Build
         run: sudo -E bash build.sh
