@@ -67,8 +67,8 @@ static inline char *bind_textdomain_codeset(const char *d, const char *c) { retu
 EOF
 sed -i '1i\#include "/tmp/gettext_stubs.h"' Modules/_localemodule.c
 
-# Fix zstd include path
-export CFLAGS="$CFLAGS -I$DEPS_DIR/include"
+# Fix zstd include path - patch Makefile to add include path
+sed -i 's|-I./Include|-I./Include -I/opt/deps/include|g' Makefile
 
 make -j$(nproc)
 make install
