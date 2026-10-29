@@ -1,4 +1,4 @@
-name: Build Python for OHOS ARM64
+name: Build Python for OHOS ARM64 (Incremental)
 
 on:
   workflow_dispatch:
@@ -8,37 +8,52 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Checkout Harmonybrew/ohos-python
+      - name: Checkout build scripts
+        uses: actions/checkout@v4
+
+      - name: Checkout original ohos-python (for reference only)
         uses: actions/checkout@v4
         with:
           repository: Harmonybrew/ohos-python
           ref: main
-
-      - name: Checkout patch script
-        uses: actions/checkout@v4
-        with:
-          repository: wyy520110/ohos-python-builder
-          ref: main
-          path: patch-dir
+          path: ohos-python-ref
 
       - name: Install Python 3.14
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
 
+      - name: Restore deps cache
+        uses: actions/cache@v4
+        id: deps-cache
+        with:
+          path: |
+            /opt/deps
+            /opt/ohos-sdk
+            /opt/python-3.14.6-ohos-arm64
+          key: ohos-python-deps-${{ github.run_id }}
+          restore-keys: |
+            ohos-python-deps-
+
       - name: Setup SDK and compilers
         run: |
           set -ex
-          curl -fL -o ohos-sdk.tar.gz https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-windows_linux-public_20260829.tar.gz
-          tar -zxf ohos-sdk.tar.gz
-          rm -rf ohos-sdk.tar.gz
-          cd ohos-sdk/linux
-          unzip -q native-linux-x64-*.zip
-          unzip -q toolchains-linux-x64-*.zip
-          rm -rf *.zip
-          cd -
-          sudo mkdir -p /opt/ohos-sdk
-          sudo cp -r ohos-sdk/linux /opt/ohos-sdk/linux
+          if [ -f /opt/ohos-sdk/linux/native/llvm/bin/clang ]; then
+            echo "=== SDK already cached, skipping download ==="
+          else
+            curl -fL -o ohos-sdk.tar.gz https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-windows_linux-public_20260829.tar.gz
+            tar -zxf ohos-sdk.tar.gz
+            rm -rf ohos-sdk.tar.gz
+            cd ohos-sdk/linux
+            unzip -q native-linux-x64-*.zip
+            unzip -q toolchains-linux-x64-*.zip
+            rm -rf *.zip
+            cd -
+            sudo mkdir -p /opt/ohos-sdk
+            sudo cp -r ohos-sdk/linux /opt/ohos-sdk/linux
+          fi
+          
+          # Create compiler wrappers (always, since /bin is not cached)
           echo '#!/bin/sh' | sudo tee /bin/clang
           echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"' | sudo tee -a /bin/clang
           sudo chmod 0755 /bin/clang
@@ -54,30 +69,82 @@ jobs:
           echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/llvm-strip "$@"' | sudo tee -a /bin/strip
           sudo chmod 0755 /bin/strip
 
-      - name: Patch and build
+      - name: Set environment
         run: |
-          set -ex
-          BUILD_PYTHON=$(which python3)
-          export BUILD_PYTHON
-          cp patch-dir/patch_build.py .
-          python3 patch_build.py
-          export CFLAGS="-fPIC -std=c11 -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
-          export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
-          export LDFLAGS="-L/opt/deps/lib"
-          export CC="/bin/clang"
-          export CXX="/bin/clang++"
-          export AR="/bin/llvm-ar"
-          export RANLIB="/bin/llvm-ranlib"
-          export LD="/bin/ld.lld"
-          export STRIP="/bin/strip"
-          export CHOST="aarch64-linux-gnu"
-          sudo -E bash build.sh
+          echo "CFLAGS=-fPIC -std=c11 -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I/opt/deps/include -D__MUSL__" >> $GITHUB_ENV
+          echo "LDFLAGS=-L/opt/deps/lib" >> $GITHUB_ENV
+          echo "CC=/bin/clang" >> $GITHUB_ENV
+          echo "CXX=/bin/clang++" >> $GITHUB_ENV
+          echo "AR=/bin/llvm-ar" >> $GITHUB_ENV
+          echo "RANLIB=/bin/llvm-ranlib" >> $GITHUB_ENV
+          echo "LD=/bin/ld.lld" >> $GITHUB_ENV
+          echo "STRIP=/bin/strip" >> $GITHUB_ENV
+          echo "CHOST=aarch64-linux-gnu" >> $GITHUB_ENV
+          echo "BUILD_PYTHON=$(which python3)" >> $GITHUB_ENV
+
+      - name: Build OpenSSL
+        run: |
+          sudo -E bash scripts/build_openssl.sh
+
+      - name: Build zlib
+        run: |
+          sudo -E bash scripts/build_zlib.sh
+
+      - name: Build libffi
+        run: |
+          sudo -E bash scripts/build_libffi.sh
+
+      - name: Build libuuid
+        run: |
+          sudo -E bash scripts/build_libuuid.sh
+
+      - name: Build liblzma (xz)
+        run: |
+          sudo -E bash scripts/build_xz.sh
+
+      - name: Build bzip2
+        run: |
+          sudo -E bash scripts/build_bzip2.sh
+
+      - name: Build zstd
+        run: |
+          sudo -E bash scripts/build_zstd.sh
+
+      - name: Build ncurses
+        run: |
+          sudo -E bash scripts/build_ncurses.sh
+
+      - name: Build readline
+        run: |
+          sudo -E bash scripts/build_readline.sh
+
+      - name: Build gdbm
+        run: |
+          sudo -E bash scripts/build_gdbm.sh
+
+      - name: Build sqlite
+        run: |
+          sudo -E bash scripts/build_sqlite.sh
+
+      - name: Build Python
+        run: |
+          sudo -E bash scripts/build_python.sh
+
+      - name: Package
+        run: |
+          sudo -E bash scripts/package.sh
 
       - name: Check output
         run: |
-          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
-          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No libpython found"
-          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null || echo "No bin dir"
+          echo "=== python3 binary ==="
+          find /opt/python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
+          echo "=== libpython ==="
+          find /opt/python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No libpython found"
+          echo "=== bin directory ==="
+          ls -la /opt/python-3.14.6-ohos-arm64/bin/ 2>/dev/null || echo "No bin dir"
+          echo "=== tar.gz ==="
+          ls -lh python-3.14.6-ohos-arm64.tar.gz 2>/dev/null || echo "No tar.gz"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
