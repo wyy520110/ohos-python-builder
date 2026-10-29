@@ -32,26 +32,16 @@ jobs:
           sed -i 's|ohos-sdk/ohos|ohos-sdk/linux|g' build.sh
           sed -i 's|unzip -q native-\*.zip|unzip -q native-linux-*.zip|' build.sh
           sed -i 's|unzip -q toolchains-\*.zip|unzip -q toolchains-linux-*.zip|' build.sh
-          
-          # Fix wrapper scripts using a Python script to avoid shell escaping issues
-          python3 -c "
-          import re
-          with open('build.sh', 'r') as f:
-              content = f.read()
-          # Replace the wrapper exec line
-          old = 'exec /opt/ohos-sdk/linux/native/llvm/bin/\ \"\\\$@\"'
-          new = 'exec /opt/ohos-sdk/linux/native/llvm/bin/\ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__ \"\\\$@\"'
-          content = content.replace(old, new)
-          with open('build.sh', 'w') as f:
-              f.write(content)
-          "
-          
+          # Fix wrapper: add target and sysroot only (ARM defines go in CFLAGS)
+          sed -i 's|exec /opt/ohos-sdk/linux/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/linux/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"|' build.sh
+          # Add ARM defines to CFLAGS (applies to all compilations)
+          sed -i 's|export CFLAGS="-fPIC"|export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"|' build.sh
           # Set CC/CXX
           sed -i '/^export CFLAGS/a export CC="/bin/clang -x c"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
-          
-          # Verify wrapper fix
+          # Verify
           grep 'ARM_ARCH' build.sh | head -2 || true
+          grep 'export CFLAGS' build.sh | head -1 || true
 
       - name: Build
         run: sudo -E bash build.sh
