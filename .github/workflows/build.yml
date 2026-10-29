@@ -23,23 +23,43 @@ jobs:
           tar -zxf ohos-sdk.tar.gz
           rm -rf ohos-sdk.tar.gz
           
+          # Check directory structure
+          echo "=== Top level ==="
+          ls -la
+          echo "=== ohos-sdk/ ==="
+          ls -la ohos-sdk/ 2>/dev/null || echo "no ohos-sdk dir"
+          echo "=== Find linux dir ==="
+          find . -maxdepth 3 -type d -name "linux" 2>/dev/null
+          echo "=== Find all dirs with native ==="
+          find . -maxdepth 4 -type d -name "native" 2>/dev/null
+          echo "=== Find zip files ==="
+          find . -name "*.zip" -type f 2>/dev/null
+          
+          # Find the linux SDK directory dynamically
+          LINUX_SDK_DIR=
+          echo "Linux SDK dir: "
+          
+          if [ -z "" ]; then
+            echo "ERROR: No linux SDK directory found!"
+            exit 1
+          fi
+          
           # Unzip linux SDK
-          cd ohos-sdk/linux
+          cd ""
           unzip -q native-linux-x64-*.zip
           unzip -q toolchains-linux-x64-*.zip
           rm -rf *.zip
-          cd 
+          cd ""
           
           # Copy SDK to /opt
           sudo mkdir -p /opt/ohos-sdk
-          sudo cp -r ohos-sdk/linux /opt/ohos-sdk/linux
+          sudo cp -r "" /opt/ohos-sdk/linux
           
-          # Create compiler wrappers using printf (avoids heredoc variable issues)
+          # Create compiler wrappers using printf
           sudo printf '#!/bin/sh\nexec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "$@"\n' > /bin/clang
           sudo printf '#!/bin/sh\nexec /opt/ohos-sdk/linux/native/llvm/bin/clang++ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"\n' > /bin/clang++
           sudo chmod 0755 /bin/clang /bin/clang++
           
-          # Create wrappers for other LLVM tools
           for tool in ld.lld llvm-ar llvm-ranlib llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip llvm-addr2line llvm-cxxfilt llvm-size llvm-strings; do
               sudo printf '#!/bin/sh\nexec /opt/ohos-sdk/linux/native/llvm/bin/%s "$@"\n' "" > /bin/
               sudo chmod 0755 /bin/
@@ -49,7 +69,6 @@ jobs:
         run: |
           set -ex
           
-          # Patch build.sh
           sed -i '/Harmonybrew\/ohos/s/^/#SKIP: /' build.sh
           sed -i '/^ln -sf/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s /s/^/#SKIP: /' build.sh
@@ -67,7 +86,6 @@ jobs:
           sed -i '/rm -rf \*\.zip/s/^/#SKIP: /' build.sh
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
           
-          # Set environment
           export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
           export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
           export LDFLAGS="-L/opt/deps/lib"
