@@ -42,26 +42,20 @@ jobs:
       - name: Patch and build
         run: |
           set -ex
-          # Instead of sed patching, use a Python script to comment out specific lines
           python3 << 'PYEOF'
           with open('build.sh', 'r') as f:
               lines = f.readlines()
           
-          # Lines to skip (0-indexed): tool downloads, ln, SDK setup, wrapper creation
           skip_patterns = [
-              'Harmonybrew/ohos',
+              'Harmonybrew/ohos-',
               'ln -sf',
               'ln -s ',
               'curl.*ohos-sdk',
               'tar.*ohos-sdk',
               'cd ohos-sdk',
               'unzip -q',
-              'cat <<EOF',
-              'for executable in',
-              'essential_tools=',
           ]
           
-          # Track if we're inside the for loop for wrapper creation
           in_for_loop = False
           new_lines = []
           for i, line in enumerate(lines):
@@ -70,8 +64,8 @@ jobs:
                   if pat in line:
                       should_skip = True
                       break
-              # Track for loop for wrapper creation
-              if 'for executable in' in line and 'essential_tools' in line:
+              # Track for loop for wrapper creation (line 60-66)
+              if line.strip().startswith('for executable in'):
                   in_for_loop = True
                   should_skip = True
               if in_for_loop:
@@ -107,9 +101,9 @@ jobs:
 
       - name: Check output
         run: |
-          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null; echo "No python3 found"
-          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null; echo "No libpython found"
-          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null; echo "No bin dir"
+          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
+          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No libpython found"
+          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null || echo "No bin dir"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
