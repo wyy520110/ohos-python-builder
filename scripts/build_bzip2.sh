@@ -20,9 +20,15 @@ fi
 
 cd bzip2-1.0.8
 
-# bzip2 doesn't have configure, use make directly
-# Build shared library
-make -j$(nproc) CC="/bin/clang" CFLAGS="$CFLAGS -fPIC" libbz2.so.1.0.8
+# bzip2 doesn't have configure, patch Makefile directly
+sed -i "s|CC=gcc|CC=/bin/clang|" Makefile
+sed -i "s|CFLAGS=-Wall -Winline -O2 -g|CFLAGS=-fPIC -Wall -Winline -O2 -g|" Makefile
+
+# Build shared library manually
+make -j$(nproc) libbz2.a
+
+# Create shared library
+/bin/clang -shared -fPIC -Wl,-soname,libbz2.so.1.0 -o libbz2.so.1.0.8 blocksort.o huffman.o crctable.o randtable.o compress.o decompress.o bzlib.o
 
 # Create symlinks
 ln -sf libbz2.so.1.0.8 libbz2.so.1.0
