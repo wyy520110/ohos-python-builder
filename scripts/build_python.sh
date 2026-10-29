@@ -67,9 +67,12 @@ static inline char *bind_textdomain_codeset(const char *d, const char *c) { retu
 EOF
 sed -i '1i\#include "/tmp/gettext_stubs.h"' Modules/_localemodule.c
 
-# Fix zstd include path - create symlink to zstd.h in Python's include dir
-ln -sf $DEPS_DIR/include/zstd.h ./Include/zstd.h 2>/dev/null || true
-ln -sf $DEPS_DIR/include/zstd.h ./Modules/_zstd/zstd.h 2>/dev/null || true
+# Fix zstd: disable _zstd module if zstd.h not found
+if [ ! -f $DEPS_DIR/include/zstd.h ]; then
+    echo "=== zstd.h not found, disabling _zstd module ==="
+    sed -i 's|_zstd _zstd/|##_zstd _zstd/|' Modules/Setup.stdlib 2>/dev/null || true
+    rm -rf Modules/_zstd
+fi
 
 make -j$(nproc)
 make install
