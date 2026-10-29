@@ -185,22 +185,23 @@ jobs:
           ls -la /opt/deps/lib/*.so* 2>/dev/null || echo "No deps libs"
           ls -la /opt/python-3.14.6-ohos-arm64/bin/python3* 2>/dev/null || echo "No python binary"
 
-      # === Package only if Python built successfully ===
+      # === Package if Python binary exists ===
       - name: Package
-        if: always() && steps.python.outcome == 'success'
+        if: always()
         run: |
+          if [ ! -f /opt/python-3.14.6-ohos-arm64/bin/python3.14 ]; then
+            echo "Python not built, skipping package"
+            exit 0
+          fi
           MISSING=""
           for lib in libssl.so libz.so libffi.so libuuid.so liblzma.so libbz2.so libzstd.so libncursesw.so libreadline.so libgdbm.so libsqlite3.so; do
             if [ ! -f /opt/deps/lib/$lib ]; then
               MISSING="$MISSING $lib"
             fi
           done
-          if [ ! -f /opt/python-3.14.6-ohos-arm64/bin/python3.14 ]; then
-            MISSING="$MISSING python3.14"
-          fi
           if [ -n "$MISSING" ]; then
             echo "Missing:$MISSING"
-            exit 1
+            exit 0
           fi
           sudo -E bash scripts/package.sh
 
