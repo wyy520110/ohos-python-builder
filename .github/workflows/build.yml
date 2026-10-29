@@ -60,6 +60,7 @@ jobs:
           in_for_loop = False
           in_multiline_skip = False
           new_lines = []
+          current_dir = ""
           for i, line in enumerate(lines):
               should_skip = False
               for pat in skip_patterns:
@@ -91,11 +92,14 @@ jobs:
                   else:
                       should_skip = True
               line = line.replace('/opt/ohos-sdk/ohos/', '/opt/ohos-sdk/linux/')
-              # Add --enable-shared to Python configure
-              if './configure' in line and '--enable-shared' not in line and 'Python' not in line:
+              # Track current directory
+              if line.strip().startswith('cd ') and 'ohos-sdk' not in line:
+                  current_dir = line.strip().split()[1]
+              # Add --enable-shared to Python configure only
+              if './configure' in line and '--enable-shared' not in line and 'Python' in current_dir:
                   line = line.rstrip() + ' --enable-shared\n'
-              # Add --host to all ./configure commands (for cross compiling)
-              if './configure' in line and '--host' not in line:
+              # Add --host to configure commands (except zlib which uses CHOST)
+              if './configure' in line and '--host' not in line and 'zlib' not in current_dir:
                   line = line.replace('./configure', './configure --host=aarch64-linux-ohos --build=x86_64-linux-gnu')
               # After OpenSSL Configure, fix private keyword
               if './Configure' in line and 'linux-aarch64' in line:
@@ -118,6 +122,7 @@ jobs:
           export AR="/bin/llvm-ar"
           export RANLIB="/bin/llvm-ranlib"
           export LD="/bin/ld.lld"
+          export CHOST="aarch64-linux-ohos"
           sudo -E bash build.sh
 
       - name: Check output
