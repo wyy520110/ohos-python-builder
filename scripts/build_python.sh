@@ -87,8 +87,11 @@ else
     sed -i '/_ctypes/d' Makefile 2>/dev/null || true
 fi
 
+# Disable checksharedmods (fails in cross compile)
+sed -i 's/checksharedmods:/checksharedmods_disabled:/' Makefile
+
 make -j$(nproc)
-make install || true
+make install
 
 # Copy dependency libs
 cp /opt/deps/lib/*.so* $PREFIX/lib/ 2>/dev/null || true
