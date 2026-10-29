@@ -14,10 +14,8 @@ jobs:
           repository: Harmonybrew/ohos-python
           ref: main
 
-      - name: Create and run patched build
+      - name: Build
         run: |
-          cat > patched-build.sh << 'WRAPPER_EOF'
-          #!/bin/bash
           set -ex
           WORKDIR=D:\work\alphaclaw-client-tauri
           
@@ -34,37 +32,33 @@ jobs:
           cd ""
           
           # Copy SDK to /opt
-          mkdir -p /opt/ohos-sdk
-          cp -r "/ohos-sdk/linux" /opt/ohos-sdk/linux
+          sudo mkdir -p /opt/ohos-sdk
+          sudo cp -r ohos-sdk/linux /opt/ohos-sdk/linux
           
           # Create clang wrapper (with -x c for C mode)
-          echo '#!/bin/sh' > /bin/clang
-          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "$@"' >> /bin/clang
-          chmod 0755 /bin/clang
+          sudo tee /bin/clang > /dev/null << 'EOF'
+          #!/bin/sh
+          exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "$@"
+          EOF
+          sudo chmod 0755 /bin/clang
           
           # Create clang++ wrapper
-          echo '#!/bin/sh' > /bin/clang++
-          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang++ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"' >> /bin/clang++
-          chmod 0755 /bin/clang++
+          sudo tee /bin/clang++ > /dev/null << 'EOF'
+          #!/bin/sh
+          exec /opt/ohos-sdk/linux/native/llvm/bin/clang++ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"
+          EOF
+          sudo chmod 0755 /bin/clang++
           
           # Create wrappers for other LLVM tools
           for tool in ld.lld llvm-ar llvm-ranlib llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip llvm-addr2line llvm-cxxfilt llvm-size llvm-strings; do
-              echo "#!/bin/sh" > /bin/
-              echo "exec /opt/ohos-sdk/linux/native/llvm/bin/ \"\$@\"" >> /bin/
-              chmod 0755 /bin/
+              sudo tee /bin/ > /dev/null << EOF
+          #!/bin/sh
+          exec /opt/ohos-sdk/linux/native/llvm/bin/ "\$@"
+          EOF
+              sudo chmod 0755 /bin/
           done
           
-          # Set environment
-          export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
-          export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
-          export LDFLAGS="-L/opt/deps/lib"
-          export CC="/bin/clang"
-          export CXX="/bin/clang++"
-          export AR="/bin/llvm-ar"
-          export RANLIB="/bin/llvm-ranlib"
-          export LD="/bin/ld.lld"
-          
-          # Patch build.sh: skip everything we already did
+          # Patch build.sh
           sed -i '/Harmonybrew\/ohos/s/^/#SKIP: /' build.sh
           sed -i '/^ln -sf/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s /s/^/#SKIP: /' build.sh
@@ -82,13 +76,17 @@ jobs:
           sed -i '/rm -rf \*\.zip/s/^/#SKIP: /' build.sh
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
           
-          # Run the patched build.sh
-          bash build.sh
-          WRAPPER_EOF
-          chmod +x patched-build.sh
-
-      - name: Build
-        run: sudo -E bash patched-build.sh
+          # Set environment and run
+          export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
+          export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
+          export LDFLAGS="-L/opt/deps/lib"
+          export CC="/bin/clang"
+          export CXX="/bin/clang++"
+          export AR="/bin/llvm-ar"
+          export RANLIB="/bin/llvm-ranlib"
+          export LD="/bin/ld.lld"
+          
+          sudo -E bash build.sh
 
       - name: Check output
         run: |
