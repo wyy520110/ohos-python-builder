@@ -38,7 +38,6 @@ jobs:
               echo "exec /opt/ohos-sdk/linux/native/llvm/bin/$tool \"\$@\"" | sudo tee -a /bin/$tool
               sudo chmod 0755 /bin/$tool
           done
-          # Create strip wrapper (use llvm-strip)
           echo '#!/bin/sh' | sudo tee /bin/strip
           echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/llvm-strip "$@"' | sudo tee -a /bin/strip
           sudo chmod 0755 /bin/strip
@@ -105,9 +104,14 @@ jobs:
                   should_skip = True
                   if line.strip() == 'cd $WORKDIR' or line.strip().startswith('cd /'):
                       in_gettext = False
-              if './configure' in line and '--enable-shared' not in line and 'Python' in current_dir:
-                  line = line.rstrip() + ' --enable-shared\n'
-              if './configure' in line and '--host' not in line and 'zlib' not in current_dir and not in_gettext:
+              # Python configure: add --enable-shared and --with-build-python
+              if './configure' in line and 'Python' in current_dir:
+                  if '--enable-shared' not in line:
+                      line = line.rstrip() + ' --enable-shared\n'
+                  if '--with-build-python' not in line:
+                      line = line.rstrip() + ' --with-build-python=/usr/bin/python3\n'
+              # Other configure: add --host
+              elif './configure' in line and '--host' not in line and 'zlib' not in current_dir and not in_gettext:
                   line = line.replace('./configure', './configure --host=aarch64-linux-gnu --build=x86_64-linux-gnu')
               if './Configure' in line and 'linux-aarch64' in line:
                   new_lines.append(line)
