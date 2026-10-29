@@ -48,7 +48,8 @@ echo "PLATFORM_TRIPLET=aarch64-linux-musl" > Misc/platform_triplet.c
     CXX=/bin/clang++ \
     AR=/bin/llvm-ar \
     RANLIB=/bin/llvm-ranlib \
-    LD=/bin/ld.lld
+    LD=/bin/ld.lld \
+    CFLAGS="$CFLAGS -DNO_GETTEXT"
 
 make -j$(nproc)
 make install
