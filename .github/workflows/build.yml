@@ -33,11 +33,9 @@ jobs:
           sed -i 's|unzip -q native-\*.zip|unzip -q native-linux-*.zip|' build.sh
           sed -i 's|unzip -q toolchains-\*.zip|unzip -q toolchains-linux-*.zip|' build.sh
           sed -i 's|exec /opt/ohos-sdk/linux/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/linux/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"|' build.sh
-          # Add ARM defines AND -Dprivate=priv to CFLAGS (macro replacement, safe)
-          sed -i 's|export CFLAGS="-fPIC"|export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__ -Dprivate=priv -Dprotected=prot -Dpublic=pub"|' build.sh
+          # Only -Dprivate=priv (not public/protected which break system headers)
+          sed -i 's|export CFLAGS="-fPIC"|export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__ -Dprivate=priv"|' build.sh
           sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
-          # Remove the sed private replacement (use -Dprivate=priv instead)
-          sed -i '/sed -i.*private.*apps.h/d' build.sh
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
 
       - name: Build
