@@ -60,6 +60,7 @@ jobs:
           
           in_while_loop = False
           in_for_loop = False
+          in_multiline_skip = False
           new_lines = []
           for i, line in enumerate(lines):
               should_skip = False
@@ -67,6 +68,13 @@ jobs:
                   if pat in line:
                       should_skip = True
                       break
+              # Handle multi-line commands (ending with \)
+              if in_multiline_skip:
+                  should_skip = True
+                  if not line.rstrip().endswith('\\'):
+                      in_multiline_skip = False
+              elif should_skip and line.rstrip().endswith('\\'):
+                  in_multiline_skip = True
               if 'while read' in line:
                   in_while_loop = True
                   should_skip = True
