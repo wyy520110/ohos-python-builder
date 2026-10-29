@@ -65,6 +65,8 @@ jobs:
           sed -i '/^EOF/s/^/#SKIP: /' build.sh
           sed -i '/rm -rf \*\.zip/s/^/#SKIP: /' build.sh
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
+          # Fix binary-sign-tool path
+          sed -i 's|/opt/ohos-sdk/ohos/toolchains|/opt/ohos-sdk/linux/toolchains|' build.sh
           
           export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
           export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
