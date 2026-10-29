@@ -92,16 +92,13 @@ jobs:
                   else:
                       should_skip = True
               line = line.replace('/opt/ohos-sdk/ohos/', '/opt/ohos-sdk/linux/')
-              # Track current directory
               if line.strip().startswith('cd ') and 'ohos-sdk' not in line:
                   current_dir = line.strip().split()[1]
-              # Add --enable-shared to Python configure only
               if './configure' in line and '--enable-shared' not in line and 'Python' in current_dir:
                   line = line.rstrip() + ' --enable-shared\n'
-              # Add --host to configure commands (except zlib which uses CHOST)
+              # Use aarch64-linux-gnu (config.sub doesn't recognize ohos)
               if './configure' in line and '--host' not in line and 'zlib' not in current_dir:
-                  line = line.replace('./configure', './configure --host=aarch64-linux-ohos --build=x86_64-linux-gnu')
-              # After OpenSSL Configure, fix private keyword
+                  line = line.replace('./configure', './configure --host=aarch64-linux-gnu --build=x86_64-linux-gnu')
               if './Configure' in line and 'linux-aarch64' in line:
                   new_lines.append(line)
                   new_lines.append('sed -i "s/\\bprivate\\b/priv/g" apps/include/apps.h\n')
@@ -122,14 +119,14 @@ jobs:
           export AR="/bin/llvm-ar"
           export RANLIB="/bin/llvm-ranlib"
           export LD="/bin/ld.lld"
-          export CHOST="aarch64-linux-ohos"
+          export CHOST="aarch64-linux-gnu"
           sudo -E bash build.sh
 
       - name: Check output
         run: |
-          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
-          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No libpython found"
-          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null || echo "No bin dir"
+          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null; echo "No python3 found"
+          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null; echo "No libpython found"
+          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null; echo "No bin dir"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
