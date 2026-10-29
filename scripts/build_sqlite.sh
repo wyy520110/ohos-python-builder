@@ -12,13 +12,16 @@ fi
 
 cd $WORKDIR/deps 2>/dev/null || { mkdir -p $WORKDIR/deps && cd $WORKDIR/deps; }
 
-if [ ! -d sqlite-autoconf-3510200 ]; then
-    curl -fLO https://www.sqlite.org/2024/sqlite-autoconf-3450100.tar.gz
-    tar -zxf sqlite-autoconf-3510200.tar.gz
-    rm -rf sqlite-autoconf-3510200.tar.gz
+SQLITE_VER=3450100
+SQLITE_DIR=sqlite-autoconf-$SQLITE_VER
+
+if [ ! -d $SQLITE_DIR ]; then
+    curl -fLO https://www.sqlite.org/2024/$SQLITE_DIR.tar.gz
+    tar -zxf $SQLITE_DIR.tar.gz
+    rm -rf $SQLITE_DIR.tar.gz
 fi
 
-cd sqlite-autoconf-3510200
+cd $SQLITE_DIR
 ./configure --host=aarch64-linux-gnu --build=x86_64-linux-gnu --prefix=$DEPS_DIR \
     --disable-readline
 make -j$(nproc)
