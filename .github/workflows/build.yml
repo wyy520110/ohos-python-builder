@@ -16,17 +16,25 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Restore deps cache
-        id: restore-cache
-        uses: actions/cache/restore@v4
+      # === Download previous deps artifact (if exists) ===
+      - name: Download previous deps
+        continue-on-error: true
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            /opt/deps
-            /opt/ohos-sdk
-            /opt/python-3.14.6-ohos-arm64
-          key: ohos-python-deps-v1
-          restore-keys: |
-            ohos-python-deps-v1
+          name: ohos-deps
+          path: /tmp/ohos-deps
+
+      - name: Restore deps from artifact
+        run: |
+          if [ -f /tmp/ohos-deps/deps.tar.gz ]; then
+            echo "=== Restoring deps from artifact ==="
+            sudo mkdir -p /opt/deps
+            sudo tar -xzf /tmp/ohos-deps/deps.tar.gz -C /opt/
+            echo "=== Restored ==="
+            ls /opt/deps/lib/*.so* 2>/dev/null | head -20
+          else
+            echo "=== No previous artifact, building from scratch ==="
+          fi
 
       - name: Setup SDK and compilers
         run: |
@@ -46,7 +54,6 @@ jobs:
             sudo cp -r ohos-sdk/linux /opt/ohos-sdk/linux
           fi
           
-          # Create compiler wrappers (always, since /bin is not cached)
           echo '#!/bin/sh' | sudo tee /bin/clang
           echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"' | sudo tee -a /bin/clang
           sudo chmod 0755 /bin/clang
@@ -76,8 +83,8 @@ jobs:
           echo "CHOST=aarch64-linux-gnu" >> $GITHUB_ENV
           echo "BUILD_PYTHON=$(which python3)" >> $GITHUB_ENV
 
-      # === Each build step uses continue-on-error so failures don't stop the job ===
-      # === Cache is saved after ALL steps, so successful builds are preserved ===
+      # === ALL build steps with continue-on-error ===
+      # === Scripts auto-skip if product already exists (from artifact) ===
 
       - name: Build OpenSSL
         id: openssl
@@ -139,22 +146,24 @@ jobs:
         continue-on-error: true
         run: sudo -E bash scripts/build_python.sh
 
-      # === Save cache after all build steps (always, even if some failed) ===
-      - name: Fix permissions for cache
+      # === Upload deps artifact (always, even if some failed) ===
+      - name: Pack deps for artifact
         if: always()
-        run: sudo chmod -R a+rX /opt/deps /opt/ohos-sdk /opt/python-3.14.6-ohos-arm64 2>/dev/null || true
+        run: |
+          sudo chmod -R a+rX /opt/deps 2>/dev/null || true
+          cd /opt
+          tar -czf /tmp/deps.tar.gz deps/
+          ls -lh /tmp/deps.tar.gz
 
-      - name: Save deps cache
+      - name: Upload deps artifact
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/upload-artifact@v4
         with:
-          path: |
-            /opt/deps
-            /opt/ohos-sdk
-            /opt/python-3.14.6-ohos-arm64
-          key: ohos-python-deps-v1
+          name: ohos-deps
+          path: /tmp/deps.tar.gz
+          retention-days: 30
 
-      # === Check which steps succeeded ===
+      # === Check results ===
       - name: Check results
         if: always()
         run: |
@@ -180,7 +189,6 @@ jobs:
       - name: Package
         if: success()
         run: |
-          # Verify all deps exist
           MISSING=""
           for lib in libssl.so libz.so libffi.so libuuid.so liblzma.so libbz2.so libzstd.so libncursesw.so libreadline.so libgdbm.so libsqlite3.so; do
             if [ ! -f /opt/deps/lib/$lib ]; then
@@ -192,24 +200,11 @@ jobs:
           fi
           if [ -n "$MISSING" ]; then
             echo "Missing:$MISSING"
-            echo "Cannot package, some deps are missing"
             exit 1
           fi
           sudo -E bash scripts/package.sh
 
-      - name: Check output
-        if: success()
-        run: |
-          echo "=== python3 binary ==="
-          find /opt/python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
-          echo "=== libpython ==="
-          find /opt/python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No libpython found"
-          echo "=== bin directory ==="
-          ls -la /opt/python-3.14.6-ohos-arm64/bin/ 2>/dev/null || echo "No bin dir"
-          echo "=== tar.gz ==="
-          ls -lh python-3.14.6-ohos-arm64.tar.gz 2>/dev/null || echo "No tar.gz"
-
-      - name: Upload artifact
+      - name: Upload final artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
