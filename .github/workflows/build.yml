@@ -16,6 +16,7 @@ jobs:
 
       - name: Patch build.sh
         run: |
+          # Skip OHOS ARM64 tools download
           sed -i '/Harmonybrew\/ohos-coreutils/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-unzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-grep/s/^/#SKIP: /' build.sh
@@ -24,29 +25,30 @@ jobs:
           sed -i '/Harmonybrew\/ohos-tar/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-gzip/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-perl/s/^/#SKIP: /' build.sh
+          
+          # Skip ln commands
           sed -i '/^ln -sf.*ohos-arm64/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s clang/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s clang++/s/^/#SKIP: /' build.sh
-          sed -i '/^ln -s ld\.lld/s/^/#SKIP: /' build.sh
-          sed -i '/^ln -s llvm-/s/^/#SKIP: /' build.sh
+          sed -i '/^ln -s ld/s/^/#SKIP: /' build.sh
+          sed -i '/^ln -s llvm/s/^/#SKIP: /' build.sh
           
-          # Use linux SDK globally
+          # Use linux SDK
           sed -i 's|ohos-sdk/ohos|ohos-sdk/linux|g' build.sh
           sed -i 's|unzip -q native-\*.zip|unzip -q native-linux-*.zip|' build.sh
           sed -i 's|unzip -q toolchains-\*.zip|unzip -q toolchains-linux-*.zip|' build.sh
           
-          # Fix wrapper scripts - clang wrapper forces C mode, clang++ forces C++ mode
-          # clang wrapper: add -x c for .c files
-          sed -i '/cat <<EOF > \/bin\/\/i # Custom wrapper for clang to force C mode\nif [ "" = "clang" ] || [ "" = "clang-cpp" ]; then\n  cat <<EOF > /bin/\n#!/bin/sh\nexec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "\$@"\nEOF\nelif [ "" = "clang++" ]; then\n  cat <<EOF > /bin/\n#!/bin/sh\nexec /opt/ohos-sdk/linux/native/llvm/bin/clang++ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "\$@"\nEOF\nelse' build.sh
+          # Fix wrapper: add target and sysroot, and -x c for clang
+          sed -i 's|exec /opt/ohos-sdk/linux/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/linux/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"|' build.sh
           
           # Set CC/CXX
           sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
           
+          # Add -std=c11 to CFLAGS to force C mode
+          sed -i 's|export CFLAGS="-fPIC"|export CFLAGS="-fPIC -std=c11"|' build.sh
+          
           # Add --enable-shared
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
-          
-          # Verify
-          grep -A2 'Custom wrapper' build.sh | head -5 || true
 
       - name: Build
         run: sudo -E bash build.sh
