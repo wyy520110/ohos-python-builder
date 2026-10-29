@@ -32,8 +32,9 @@ jobs:
           sed -i 's|ohos-sdk/ohos|ohos-sdk/linux|g' build.sh
           sed -i 's|unzip -q native-\*.zip|unzip -q native-linux-*.zip|' build.sh
           sed -i 's|unzip -q toolchains-\*.zip|unzip -q toolchains-linux-*.zip|' build.sh
-          sed -i 's|exec /opt/ohos-sdk/linux/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/linux/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"|' build.sh
-          # CC with -x c to force C mode, CXX without it
+          # Fix wrapper: add target, sysroot, AND __aarch64__ define
+          sed -i 's|exec /opt/ohos-sdk/linux/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/linux/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -D__aarch64__ "$@"|' build.sh
+          # CC with -x c, CXX without
           sed -i '/^export CFLAGS/a export CC="/bin/clang -x c"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
 
