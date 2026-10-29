@@ -51,15 +51,23 @@ echo "PLATFORM_TRIPLET=aarch64-linux-musl" > Misc/platform_triplet.c
     LD=/bin/ld.lld \
     CFLAGS="$CFLAGS -DNO_GETTEXT"
 
-make -j$(nproc) || {
-    echo "=== First make failed, patching _localemodule ==="
-    # Disable _localemodule entirely (gettext not available)
-    sed -i '/_localemodule/d' Modules/Setup.local 2>/dev/null || true
-    sed -i 's|_locale _localemodule.c|##_locale _localemodule.c|' Modules/Setup.stdlib 2>/dev/null || true
-    # Also patch the source to provide stubs
-    sed -i '1i\#define textdomain(d) ((char*)(d))\n#define bindtextdomain(d,dir) ((char*)(dir))\n#define gettext(s) (s)\n#define dgettext(d,s) (s)\n#define dcgettext(d,s,c) (s)\n#define ngettext(s,p,n) ((n)==1?(s):(p))\n#define dngettext(d,s,p,n) ((n)==1?(s):(p))\n#define bind_textdomain_codeset(d,c) ((char*)(c))' Modules/_localemodule.c
-    make -j$(nproc)
-}
+# Patch _localemodule.c: provide gettext stubs (libintl not available)
+cat > /tmp/gettext_stubs.h << 'EOF'
+#ifndef GETTEXT_STUBS_H
+#define GETTEXT_STUBS_H
+static inline char *textdomain(const char *d) { return (char*)d; }
+static inline char *bindtextdomain(const char *d, const char *dir) { return (char*)dir; }
+static inline char *gettext(const char *s) { return (char*)s; }
+static inline char *dgettext(const char *d, const char *s) { return (char*)s; }
+static inline char *dcgettext(const char *d, const char *s, int c) { return (char*)s; }
+static inline char *ngettext(const char *s, const char *p, unsigned long n) { return (char*)(n==1?s:p); }
+static inline char *dngettext(const char *d, const char *s, const char *p, unsigned long n) { return (char*)(n==1?s:p); }
+static inline char *bind_textdomain_codeset(const char *d, const char *c) { return (char*)c; }
+#endif
+EOF
+sed -i '1i\#include "/tmp/gettext_stubs.h"' Modules/_localemodule.c
+
+make -j$(nproc)
 make install
 
 # Copy dependency libs
