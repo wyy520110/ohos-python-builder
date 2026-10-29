@@ -71,7 +71,7 @@ jobs:
 
       - name: Set environment
         run: |
-          echo "CFLAGS=-fPIC -std=c11 -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__" >> $GITHUB_ENV
+          echo "CFLAGS=-fPIC -std=gnu11 -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__" >> $GITHUB_ENV
           echo "CPPFLAGS=-I/opt/deps/include -D__MUSL__" >> $GITHUB_ENV
           echo "LDFLAGS=-L/opt/deps/lib" >> $GITHUB_ENV
           echo "CC=/bin/clang" >> $GITHUB_ENV
