@@ -27,11 +27,13 @@ jobs:
           cd -
           sudo mkdir -p /opt/ohos-sdk
           sudo cp -r ohos-sdk/linux /opt/ohos-sdk/linux
+          # clang wrapper with -x c (force C mode)
           echo '#!/bin/sh' | sudo tee /bin/clang
           echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "$@"' | sudo tee -a /bin/clang
           sudo chmod 0755 /bin/clang
+          # clang++ wrapper - ALSO with -x c (force C mode even for C++ compiler)
           echo '#!/bin/sh' | sudo tee /bin/clang++
-          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang++ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"' | sudo tee -a /bin/clang++
+          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "$@"' | sudo tee -a /bin/clang++
           sudo chmod 0755 /bin/clang++
           for tool in ld.lld llvm-ar llvm-ranlib llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip llvm-addr2line llvm-cxxfilt llvm-size llvm-strings; do
               echo '#!/bin/sh' | sudo tee /bin/$tool
@@ -93,11 +95,9 @@ jobs:
               line = line.replace('/opt/ohos-sdk/ohos/', '/opt/ohos-sdk/linux/')
               if './configure' in line and '--enable-shared' not in line:
                   line = line.rstrip() + ' --enable-shared\n'
-              # After OpenSSL Configure, add fixes
               if './Configure' in line and 'linux-aarch64' in line:
                   new_lines.append(line)
                   new_lines.append('sed -i "s/\\bprivate\\b/priv/g" apps/include/apps.h\n')
-                  new_lines.append('sed -i "s/^CXX =.*/CXX = \\$(CC)/" Makefile\n')
                   should_skip = True
               if should_skip:
                   new_lines.append('#SKIP: ' + line)
@@ -111,7 +111,7 @@ jobs:
           export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
           export LDFLAGS="-L/opt/deps/lib"
           export CC="/bin/clang"
-          unset CXX
+          export CXX="/bin/clang++"
           export AR="/bin/llvm-ar"
           export RANLIB="/bin/llvm-ranlib"
           export LD="/bin/ld.lld"
