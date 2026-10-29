@@ -27,13 +27,13 @@ jobs:
           cd -
           sudo mkdir -p /opt/ohos-sdk
           sudo cp -r ohos-sdk/linux /opt/ohos-sdk/linux
-          # clang wrapper with -x c (force C mode)
+          # clang wrapper WITHOUT -x c (let clang detect file type)
+          # Use -std=c11 in CFLAGS instead to force C mode for .c files
           echo '#!/bin/sh' | sudo tee /bin/clang
-          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "$@"' | sudo tee -a /bin/clang
+          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"' | sudo tee -a /bin/clang
           sudo chmod 0755 /bin/clang
-          # clang++ wrapper - ALSO with -x c (force C mode even for C++ compiler)
           echo '#!/bin/sh' | sudo tee /bin/clang++
-          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot -x c "$@"' | sudo tee -a /bin/clang++
+          echo 'exec /opt/ohos-sdk/linux/native/llvm/bin/clang --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/linux/native/sysroot "$@"' | sudo tee -a /bin/clang++
           sudo chmod 0755 /bin/clang++
           for tool in ld.lld llvm-ar llvm-ranlib llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip llvm-addr2line llvm-cxxfilt llvm-size llvm-strings; do
               echo '#!/bin/sh' | sudo tee /bin/$tool
@@ -107,7 +107,8 @@ jobs:
               f.writelines(new_lines)
           print(f"Patched {len(new_lines)} lines")
           PYEOF
-          export CFLAGS="-fPIC -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
+          # Use -std=c11 in CFLAGS to force C mode (doesn't affect .S files)
+          export CFLAGS="-fPIC -std=c11 -D__aarch64__ -D__ARM_ARCH=8 -D__ARM_ARCH_8A__"
           export CPPFLAGS="-I/opt/deps/include -D__MUSL__"
           export LDFLAGS="-L/opt/deps/lib"
           export CC="/bin/clang"
@@ -119,9 +120,9 @@ jobs:
 
       - name: Check output
         run: |
-          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
-          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No libpython found"
-          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null || echo "No bin dir"
+          find python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null; echo "No python3 found"
+          find python-3.14.6-ohos-arm64 -name "libpython*" -type f -exec ls -lh {} \; 2>/dev/null; echo "No libpython found"
+          ls -la python-3.14.6-ohos-arm64/bin/ 2>/dev/null; echo "No bin dir"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
