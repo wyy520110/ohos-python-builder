@@ -11,29 +11,22 @@ jobs:
       - name: Checkout build scripts
         uses: actions/checkout@v4
 
-      - name: Checkout original ohos-python (for reference only)
-        uses: actions/checkout@v4
-        with:
-          repository: Harmonybrew/ohos-python
-          ref: main
-          path: ohos-python-ref
-
       - name: Install Python 3.14
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
 
       - name: Restore deps cache
-        uses: actions/cache@v4
-        id: deps-cache
+        id: restore-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             /opt/deps
             /opt/ohos-sdk
             /opt/python-3.14.6-ohos-arm64
-          key: ohos-python-deps-${{ github.run_id }}
+          key: ohos-python-deps-v1
           restore-keys: |
-            ohos-python-deps-
+            ohos-python-deps-v1
 
       - name: Setup SDK and compilers
         run: |
@@ -83,59 +76,125 @@ jobs:
           echo "CHOST=aarch64-linux-gnu" >> $GITHUB_ENV
           echo "BUILD_PYTHON=$(which python3)" >> $GITHUB_ENV
 
+      # === Each build step uses continue-on-error so failures don't stop the job ===
+      # === Cache is saved after ALL steps, so successful builds are preserved ===
+
       - name: Build OpenSSL
-        run: |
-          sudo -E bash scripts/build_openssl.sh
+        id: openssl
+        continue-on-error: true
+        run: sudo -E bash scripts/build_openssl.sh
 
       - name: Build zlib
-        run: |
-          sudo -E bash scripts/build_zlib.sh
+        id: zlib
+        continue-on-error: true
+        run: sudo -E bash scripts/build_zlib.sh
 
       - name: Build libffi
-        run: |
-          sudo -E bash scripts/build_libffi.sh
+        id: libffi
+        continue-on-error: true
+        run: sudo -E bash scripts/build_libffi.sh
 
       - name: Build libuuid
-        run: |
-          sudo -E bash scripts/build_libuuid.sh
+        id: libuuid
+        continue-on-error: true
+        run: sudo -E bash scripts/build_libuuid.sh
 
       - name: Build liblzma (xz)
-        run: |
-          sudo -E bash scripts/build_xz.sh
+        id: xz
+        continue-on-error: true
+        run: sudo -E bash scripts/build_xz.sh
 
       - name: Build bzip2
-        run: |
-          sudo -E bash scripts/build_bzip2.sh
+        id: bzip2
+        continue-on-error: true
+        run: sudo -E bash scripts/build_bzip2.sh
 
       - name: Build zstd
-        run: |
-          sudo -E bash scripts/build_zstd.sh
+        id: zstd
+        continue-on-error: true
+        run: sudo -E bash scripts/build_zstd.sh
 
       - name: Build ncurses
-        run: |
-          sudo -E bash scripts/build_ncurses.sh
+        id: ncurses
+        continue-on-error: true
+        run: sudo -E bash scripts/build_ncurses.sh
 
       - name: Build readline
-        run: |
-          sudo -E bash scripts/build_readline.sh
+        id: readline
+        continue-on-error: true
+        run: sudo -E bash scripts/build_readline.sh
 
       - name: Build gdbm
-        run: |
-          sudo -E bash scripts/build_gdbm.sh
+        id: gdbm
+        continue-on-error: true
+        run: sudo -E bash scripts/build_gdbm.sh
 
       - name: Build sqlite
-        run: |
-          sudo -E bash scripts/build_sqlite.sh
+        id: sqlite
+        continue-on-error: true
+        run: sudo -E bash scripts/build_sqlite.sh
 
       - name: Build Python
-        run: |
-          sudo -E bash scripts/build_python.sh
+        id: python
+        continue-on-error: true
+        run: sudo -E bash scripts/build_python.sh
 
-      - name: Package
+      # === Save cache after all build steps (always, even if some failed) ===
+      - name: Save deps cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            /opt/deps
+            /opt/ohos-sdk
+            /opt/python-3.14.6-ohos-arm64
+          key: ohos-python-deps-v1
+
+      # === Check which steps succeeded ===
+      - name: Check results
+        if: always()
         run: |
+          echo "=== Build Results ==="
+          echo "OpenSSL: ${{ steps.openssl.outcome }}"
+          echo "zlib: ${{ steps.zlib.outcome }}"
+          echo "libffi: ${{ steps.libffi.outcome }}"
+          echo "libuuid: ${{ steps.libuuid.outcome }}"
+          echo "xz: ${{ steps.xz.outcome }}"
+          echo "bzip2: ${{ steps.bzip2.outcome }}"
+          echo "zstd: ${{ steps.zstd.outcome }}"
+          echo "ncurses: ${{ steps.ncurses.outcome }}"
+          echo "readline: ${{ steps.readline.outcome }}"
+          echo "gdbm: ${{ steps.gdbm.outcome }}"
+          echo "sqlite: ${{ steps.sqlite.outcome }}"
+          echo "Python: ${{ steps.python.outcome }}"
+          echo ""
+          echo "=== Deps check ==="
+          ls -la /opt/deps/lib/*.so* 2>/dev/null || echo "No deps libs"
+          ls -la /opt/python-3.14.6-ohos-arm64/bin/python3* 2>/dev/null || echo "No python binary"
+
+      # === Package only if ALL builds succeeded ===
+      - name: Package
+        if: success()
+        run: |
+          # Verify all deps exist
+          MISSING=""
+          for lib in libssl.so libz.so libffi.so libuuid.so liblzma.so libbz2.so libzstd.so libncursesw.so libreadline.so libgdbm.so libsqlite3.so; do
+            if [ ! -f /opt/deps/lib/$lib ]; then
+              MISSING="$MISSING $lib"
+            fi
+          done
+          if [ ! -f /opt/python-3.14.6-ohos-arm64/bin/python3.14 ]; then
+            MISSING="$MISSING python3.14"
+          fi
+          if [ -n "$MISSING" ]; then
+            echo "Missing:$MISSING"
+            echo "Cannot package, some deps are missing"
+            exit 1
+          fi
           sudo -E bash scripts/package.sh
 
       - name: Check output
+        if: success()
         run: |
           echo "=== python3 binary ==="
           find /opt/python-3.14.6-ohos-arm64 -name "python3*" -type f -exec ls -lh {} \; 2>/dev/null || echo "No python3 found"
@@ -147,6 +206,7 @@ jobs:
           ls -lh python-3.14.6-ohos-arm64.tar.gz 2>/dev/null || echo "No tar.gz"
 
       - name: Upload artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: python-ohos-shared
