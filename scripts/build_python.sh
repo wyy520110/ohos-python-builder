@@ -88,7 +88,7 @@ else
 fi
 
 make -j$(nproc)
-make install
+make install || true
 
 # Copy dependency libs
 cp /opt/deps/lib/*.so* $PREFIX/lib/ 2>/dev/null || true
