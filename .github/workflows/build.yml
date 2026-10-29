@@ -43,6 +43,7 @@ jobs:
         run: |
           set -ex
           python3 << 'PYEOF'
+          import re
           with open('build.sh', 'r') as f:
               lines = f.readlines()
           
@@ -54,7 +55,7 @@ jobs:
               'tar.*ohos-sdk',
               'cd ohos-sdk',
               'unzip -q',
-              'xargs.*tar',
+              'xargs',  # skip any line with xargs
               'rm -rf *.tar.gz',
           ]
           
@@ -68,7 +69,6 @@ jobs:
                   if pat in line:
                       should_skip = True
                       break
-              # Handle multi-line commands (ending with \)
               if in_multiline_skip:
                   should_skip = True
                   if not line.rstrip().endswith('\\'):
