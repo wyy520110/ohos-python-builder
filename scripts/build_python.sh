@@ -71,7 +71,6 @@ sed -i '1i\#include "/tmp/gettext_stubs.h"' Modules/_localemodule.c
 if [ ! -f $DEPS_DIR/include/zstd.h ]; then
     echo "=== zstd.h not found, disabling _zstd module ==="
     sed -i 's|_zstd _zstd/|##_zstd _zstd/|' Modules/Setup.stdlib 2>/dev/null || true
-    rm -rf Modules/_zstd
 fi
 
 # Fix ffi: find ffi.h (libffi installs to libdir/include)
@@ -83,7 +82,6 @@ if [ -n "$FFI_INC" ]; then
 else
     echo "=== ffi.h not found, disabling _ctypes module ==="
     sed -i 's|_ctypes _ctypes/|##_ctypes _ctypes/|' Modules/Setup.stdlib 2>/dev/null || true
-    rm -rf Modules/_ctypes
 fi
 
 make -j$(nproc)
