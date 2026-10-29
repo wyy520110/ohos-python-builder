@@ -56,6 +56,8 @@ jobs:
               'unzip -q',
           ]
           
+          # Track loops to skip entirely (while and for)
+          in_while_loop = False
           in_for_loop = False
           new_lines = []
           for i, line in enumerate(lines):
@@ -64,6 +66,16 @@ jobs:
                   if pat in line:
                       should_skip = True
                       break
+              # Track while loop for tool download (line 24-26)
+              if 'while read' in line:
+                  in_while_loop = True
+                  should_skip = True
+              if in_while_loop:
+                  if line.strip().startswith('done'):
+                      in_while_loop = False
+                      should_skip = True
+                  else:
+                      should_skip = True
               # Track for loop for wrapper creation (line 60-66)
               if line.strip().startswith('for executable in'):
                   in_for_loop = True
