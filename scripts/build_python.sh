@@ -67,8 +67,9 @@ static inline char *bind_textdomain_codeset(const char *d, const char *c) { retu
 EOF
 sed -i '1i\#include "/tmp/gettext_stubs.h"' Modules/_localemodule.c
 
-# Fix zstd include path - patch Makefile to add include path
-sed -i 's|-I./Include|-I./Include -I/opt/deps/include|g' Makefile
+# Fix zstd include path - create symlink to zstd.h in Python's include dir
+ln -sf $DEPS_DIR/include/zstd.h ./Include/zstd.h 2>/dev/null || true
+ln -sf $DEPS_DIR/include/zstd.h ./Modules/_zstd/zstd.h 2>/dev/null || true
 
 make -j$(nproc)
 make install
