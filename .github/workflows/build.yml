@@ -14,8 +14,20 @@ jobs:
           repository: Harmonybrew/ohos-python
           ref: main
 
-      - name: Patch build.sh
+      - name: Check SDK contents
         run: |
+          curl -fL -o ohos-sdk.tar.gz https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-windows_linux-public_20260829.tar.gz
+          tar -zxf ohos-sdk.tar.gz 2>/dev/null
+          ls -la ohos-sdk/
+          ls -la ohos-sdk/ohos/ 2>/dev/null || echo "no ohos dir"
+          # Check if there's a linux-only SDK
+          curl -sI https://repo.huaweicloud.com/openharmony/os/7.0-Release/ohos-sdk-linux-public_20260829.tar.gz 2>/dev/null | head -5
+
+      - name: Patch build.sh - use linux SDK and fix compiler
+        run: |
+          # Use linux-only SDK instead of windows_linux
+          sed -i 's|ohos-sdk-windows_linux-public|ohos-sdk-linux-public|' build.sh
+          
           # Skip downloading OHOS ARM64 tools
           sed -i '/Harmonybrew\/ohos-coreutils/s/^/#SKIP: /' build.sh
           sed -i '/Harmonybrew\/ohos-unzip/s/^/#SKIP: /' build.sh
@@ -29,22 +41,22 @@ jobs:
           # Skip ln -sf of ARM64 tools to /bin
           sed -i '/^ln -sf.*ohos-arm64/s/^/#SKIP: /' build.sh
           
-          # Skip ln -s in /bin directory (cc, gcc, ld, etc already exist)
+          # Skip ln -s in /bin directory
           sed -i '/^ln -s clang/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s clang++/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s ld\.lld/s/^/#SKIP: /' build.sh
           sed -i '/^ln -s llvm-/s/^/#SKIP: /' build.sh
           
-          # Fix wrapper scripts: add --target=aarch64-linux-ohos and --sysroot
+          # Fix wrapper scripts: add --target and --sysroot
           sed -i 's|exec /opt/ohos-sdk/ohos/native/llvm/bin/\ "\\\$@"|exec /opt/ohos-sdk/ohos/native/llvm/bin/ --target=aarch64-linux-ohos --sysroot=/opt/ohos-sdk/ohos/native/sysroot "$@"|' build.sh
           
-          # Set CC/CXX with full path and target (NOT CROSS_COMPILE - OpenSSL uses it to prefix command names)
-          sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"\nexport AS="/bin/clang"' build.sh
+          # Set CC/CXX with full path (NOT CROSS_COMPILE)
+          sed -i '/^export CFLAGS/a export CC="/bin/clang"\nexport CXX="/bin/clang++"\nexport AR="/bin/llvm-ar"\nexport RANLIB="/bin/llvm-ranlib"\nexport LD="/bin/ld.lld"' build.sh
           
           # Add --enable-shared to configure
           sed -i '/\.\/configure/s/$/ --enable-shared/' build.sh
           
-          grep -c 'SKIP:' build.sh || true
+          grep 'ohos-sdk-linux' build.sh | head -1 || true
           grep 'export CC' build.sh || true
 
       - name: Build
